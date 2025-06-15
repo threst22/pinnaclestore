@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useRef } from 'react';
-import { X, ShoppingCart, User, LogOut, Gift, PlusCircle, Edit, Trash2, Upload, DollarSign, Download, Users, Package, MinusCircle, Plus, Trash, CheckCircle, XCircle, Bell, KeyRound, Settings } from 'lucide-react';
+import { X, ShoppingCart, User, LogOut, PlusCircle, Edit, Trash2, Upload, DollarSign, Download, Users, Package, MinusCircle, Trash, CheckCircle, XCircle, Bell, KeyRound, Settings } from 'lucide-react';
 
 // Note: The 'xlsx' library is loaded via a script tag at the end of this file.
 
