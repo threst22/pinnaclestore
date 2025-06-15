@@ -200,8 +200,8 @@ export default function App() {
             inventory={inventory} 
             onPurchaseRequest={handlePurchaseRequest} 
             onLogout={handleLogout} 
-            showNotification={showNotification}
-            appSettings={appSettings} 
+            showNotification={showNotification} 
+            appSettings={appSettings}
         />;
       case 'admin':
         return <AdminDashboard 
@@ -262,8 +262,8 @@ const LoginPage = ({ onLogin, logo }) => {
       <div className="w-full max-w-md p-8 space-y-6 bg-white rounded-xl shadow-lg">
         <div className="text-center">
         <img src={logo} alt="Company Logo" className="mx-auto h-20 w-auto mb-4 object-contain"/>
-          <h1 className="text-3xl font-bold text-slate-800">Rewards Store</h1>
-          <p className="mt-2 text-slate-500">Employee Login</p>
+          <h1 className="text-3xl font-bold text-slate-800">Care Rewards</h1>
+          <p className="mt-2 text-slate-500">Employee Store Login</p>
         </div>
         <form onSubmit={handleSubmit} className="space-y-6">
           <div>
@@ -289,7 +289,7 @@ const Header = ({ user, onLogout, isAdmin, cartItemCount, onCartClick, appSettin
       <div className="flex items-center justify-between h-16">
         <div className="flex items-center space-x-4">
            <img src={appSettings.logo} alt="Company Logo" className="h-10 w-auto object-contain"/>
-           <span className="text-xl font-bold text-slate-700">Rewards Store</span>
+           <span className="text-xl font-bold text-slate-700">Care Rewards</span>
         </div>
         <div className="flex items-center space-x-4">
           <div className="flex items-center space-x-2">
@@ -1005,7 +1005,8 @@ const ItemModal = ({ item, onClose, onSave, showNotification }) => {
 };
 
 const EmployeeManagement = ({ users, setUsers, showNotification }) => {
-    const fileInputRef = useRef(null);
+    const addPointsFileInputRef = useRef(null);
+    const updateListFileInputRef = useRef(null);
     const [editingUser, setEditingUser] = useState(null);
     
     const handleSaveUser = (username, userData) => {
@@ -1038,16 +1039,7 @@ const EmployeeManagement = ({ users, setUsers, showNotification }) => {
         }
     };
 
-    const handleDownloadTemplate = () => {
-        if (!window.XLSX) { showNotification("Library not loaded, please wait.", "warning"); return; }
-        const template = [{ username: 'new.employee', password: 'password', name: 'New Employee', points: 0, role: 'employee' }];
-        const ws = window.XLSX.utils.json_to_sheet(template);
-        const wb = window.XLSX.utils.book_new();
-        window.XLSX.utils.book_append_sheet(wb, ws, "Employees");
-        window.XLSX.writeFile(wb, "employee_template.xlsx");
-    };
-
-    const handleFileUpload = (event) => {
+    const handleFileUpload = (event, mode) => {
         const file = event.target.files[0];
         if (!file || !window.XLSX) return;
 
@@ -1059,42 +1051,76 @@ const EmployeeManagement = ({ users, setUsers, showNotification }) => {
                 const ws = wb.Sheets[wb.SheetNames[0]];
                 const json = window.XLSX.utils.sheet_to_json(ws);
 
-                let updatedCount = 0;
-                let addedCount = 0;
-                setUsers(prevUsers => {
-                    const newUsers = { ...prevUsers };
-                    json.forEach(row => {
-                        const r = Object.fromEntries(Object.entries(row).map(([k, v]) => [k.toLowerCase(), v]));
-                        if (newUsers[r.username]) { // Update existing user
-                            if(typeof r.points === 'number') newUsers[r.username].points = r.points;
-                            if(r.name) newUsers[r.username].name = r.name;
-                            if(r.password) newUsers[r.username].password = r.password;
-                            updatedCount++;
-                        } else if (r.username && r.name) { // Add new user
-                             newUsers[r.username] = {
-                                 password: r.password || 'password',
-                                 name: r.name,
-                                 points: r.points || 0,
-                                 role: r.role || 'employee',
-                                 notifications: [],
-                                 requiresPasswordChange: true
-                             };
-                             addedCount++;
-                        }
+                if (mode === 'addPoints') {
+                    let updatedCount = 0;
+                    setUsers(prevUsers => {
+                        const newUsers = { ...prevUsers };
+                        json.forEach(row => {
+                           const username = row.username;
+                           const pointsToAdd = row.points_to_add;
+                           if(newUsers[username] && typeof pointsToAdd === 'number'){
+                               newUsers[username].points += pointsToAdd;
+                               updatedCount++;
+                           }
+                        });
+                        return newUsers;
                     });
-                    return newUsers;
-                });
-
-                let msg = `${updatedCount} employees updated, ${addedCount} employees added.`;
-                showNotification(msg, 'success', 5000);
+                     showNotification(`${updatedCount} employee(s) received points.`);
+                } else { // 'updateList' mode
+                    let updatedCount = 0;
+                    let addedCount = 0;
+                    setUsers(prevUsers => {
+                        const newUsers = { ...prevUsers };
+                        json.forEach(row => {
+                            const r = Object.fromEntries(Object.entries(row).map(([k, v]) => [k.toLowerCase(), v]));
+                            if (newUsers[r.username]) {
+                                if(typeof r.points === 'number') newUsers[r.username].points = r.points;
+                                if(r.name) newUsers[r.username].name = r.name;
+                                if(r.password) newUsers[r.username].password = r.password;
+                                updatedCount++;
+                            } else if (r.username && r.name) {
+                                newUsers[r.username] = {
+                                    password: r.password || 'password',
+                                    name: r.name,
+                                    points: r.points || 0,
+                                    role: r.role || 'employee',
+                                    notifications: [],
+                                    requiresPasswordChange: true
+                                };
+                                addedCount++;
+                            }
+                        });
+                        return newUsers;
+                    });
+                    showNotification(`${updatedCount} employees updated, ${addedCount} employees added.`, 'success', 5000);
+                }
             } catch (error) {
-                console.error("Error parsing employee file:", error);
-                showNotification("Failed to parse file. Check format and column names (username, password, name, points, role).", "error");
+                console.error("Error parsing Excel file:", error);
+                showNotification("Failed to parse file. Check format and column names.", "error");
             }
         };
         reader.readAsArrayBuffer(file);
-        event.target.value = null;
+        event.target.value = null; // Reset file input
     };
+
+    const handleDownloadTemplate = (mode) => {
+        if (!window.XLSX) { showNotification("Library not loaded, please wait.", "warning"); return; }
+        
+        let templateData, filename;
+        if (mode === 'addPoints') {
+            templateData = [{ username: 'employee1', points_to_add: 100 }];
+            filename = "add_points_template.xlsx";
+        } else {
+            templateData = [{ username: 'new.employee', password: 'password', name: 'New Employee', points: 0, role: 'employee' }];
+            filename = "employee_list_template.xlsx";
+        }
+        
+        const ws = window.XLSX.utils.json_to_sheet(templateData);
+        const wb = window.XLSX.utils.book_new();
+        window.XLSX.utils.book_append_sheet(wb, ws, "Sheet1");
+        window.XLSX.writeFile(wb, filename);
+    };
+
 
     const employeeList = Object.entries(users).filter(([_, user]) => user.role === 'employee');
 
@@ -1103,12 +1129,20 @@ const EmployeeManagement = ({ users, setUsers, showNotification }) => {
             <div className="flex justify-between items-center mb-4">
                 <h3 className="text-xl font-bold text-slate-700">Manage Employees</h3>
                 <div className="flex items-center gap-2">
-                    <button onClick={handleDownloadTemplate} className="flex items-center bg-gray-600 text-white px-3 py-2 rounded-lg hover:bg-gray-700 transition-colors text-sm">
-                        <Download className="h-4 w-4 mr-2" /> Template
+                    <button onClick={() => handleDownloadTemplate('addPoints')} className="flex items-center bg-blue-500 text-white px-3 py-2 rounded-lg hover:bg-blue-600 transition-colors text-sm">
+                        <Download className="h-4 w-4 mr-2" /> Add Pts Template
                     </button>
-                    <input type="file" ref={fileInputRef} onChange={handleFileUpload} className="hidden" accept=".xlsx, .xls, .csv"/>
-                    <button onClick={() => fileInputRef.current.click()} className="flex items-center bg-green-600 text-white px-3 py-2 rounded-lg hover:bg-green-700 transition-colors text-sm">
-                        <Upload className="h-4 w-4 mr-2" /> Upload List
+                    <input type="file" ref={addPointsFileInputRef} onChange={(e) => handleFileUpload(e, 'addPoints')} className="hidden" accept=".xlsx, .xls, .csv"/>
+                    <button onClick={() => addPointsFileInputRef.current.click()} className="flex items-center bg-blue-600 text-white px-3 py-2 rounded-lg hover:bg-blue-700 transition-colors text-sm">
+                        <Upload className="h-4 w-4 mr-2" /> Add Points
+                    </button>
+
+                    <button onClick={() => handleDownloadTemplate('updateList')} className="flex items-center bg-gray-600 text-white px-3 py-2 rounded-lg hover:bg-gray-700 transition-colors text-sm ml-4">
+                        <Download className="h-4 w-4 mr-2" /> List Template
+                    </button>
+                    <input type="file" ref={updateListFileInputRef} onChange={(e) => handleFileUpload(e, 'updateList')} className="hidden" accept=".xlsx, .xls, .csv"/>
+                    <button onClick={() => updateListFileInputRef.current.click()} className="flex items-center bg-green-600 text-white px-3 py-2 rounded-lg hover:bg-green-700 transition-colors text-sm">
+                        <Upload className="h-4 w-4 mr-2" /> Update List
                     </button>
                 </div>
             </div>
@@ -1222,12 +1256,10 @@ const EmployeeModal = ({ user, onClose, onSave }) => {
           .bg-primary-dark { background-color: var(--color-primary-dark); }
           .text-primary { color: var(--color-primary); }
           .text-primary-dark { color: var(--color-primary-dark); }
-          .hover\\:bg-primary:hover { background-color: var(--color-primary); }
           .hover\\:bg-primary-dark:hover { background-color: var(--color-primary-dark); }
           .hover\\:text-primary:hover { color: var(--color-primary); }
           .border-primary { border-color: var(--color-primary); }
-          .focus\\:ring-primary:focus { --tw-ring-color: var(--color-primary); }
-          .focus\\:border-primary:focus { border-color: var(--color-primary); }
+          .hover\\:bg-primary\\/20:hover { background-color: color-mix(in srgb, var(--color-primary) 20%, transparent); }
 
           .form-input {
              display: block; width: 100%; padding: 0.5rem 0.75rem;
