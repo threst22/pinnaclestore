@@ -462,8 +462,8 @@ const CartModal = ({ isOpen, onClose, cart, onUpdateQuantity, onConfirmPurchase,
     const canAfford = userPoints >= totalCost;
 
     return (
-        <div className="fixed inset-0 bg-black bg-opacity-60 z-50 animate-fade-in">
-            <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 bg-white p-6 rounded-lg shadow-2xl w-full max-w-lg">
+        <div className="fixed inset-0 bg-black bg-opacity-60 z-50 flex justify-center items-center p-4 animate-fade-in">
+            <div className="bg-white p-6 rounded-lg shadow-2xl w-full max-w-lg">
                 <div className="flex justify-between items-center mb-4 border-b pb-4">
                    <h2 className="text-2xl font-bold text-slate-800 flex items-center gap-2"><ShoppingCart /> Your Cart</h2>
                    <button onClick={onClose} className="text-slate-500 hover:text-slate-800 p-1 rounded-full hover:bg-slate-100"><X className="h-6 w-6" /></button>
@@ -530,8 +530,8 @@ const ChangePasswordModal = ({ user, onPasswordChange }) => {
     };
 
     return (
-        <div className="fixed inset-0 bg-slate-100 z-50">
-            <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-full max-w-md p-8 space-y-6 bg-white rounded-xl shadow-lg">
+        <div className="fixed inset-0 bg-slate-100 z-50 flex justify-center items-center p-4">
+            <div className="w-full max-w-md p-8 space-y-6 bg-white rounded-xl shadow-lg">
                 <div className="text-center">
                     <h2 className="text-2xl font-bold text-slate-800">Update Your Password</h2>
                     <p className="mt-2 text-slate-500">For security, please create a new password.</p>
@@ -961,8 +961,8 @@ const ItemModal = ({ item, onClose, onSave, showNotification }) => {
     };
 
     return (
-        <div className="fixed inset-0 bg-black bg-opacity-60 z-50">
-            <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 bg-white p-8 rounded-lg shadow-2xl w-full max-w-md">
+        <div className="fixed inset-0 bg-black bg-opacity-60 z-50 flex justify-center items-center p-4">
+            <div className="bg-white p-8 rounded-lg shadow-2xl w-full max-w-md">
                 <div className="flex justify-between items-center mb-6">
                    <h2 className="text-2xl font-bold text-slate-800">{item ? 'Edit Item' : 'Add New Item'}</h2>
                    <button onClick={onClose} className="text-slate-500 hover:text-slate-800"><X className="h-6 w-6" /></button>
@@ -1195,8 +1195,8 @@ const EmployeeModal = ({ user, onClose, onSave }) => {
     };
 
     return (
-        <div className="fixed inset-0 bg-black bg-opacity-50 z-50">
-            <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 bg-white p-8 rounded-lg shadow-2xl w-full max-w-md">
+        <div className="fixed inset-0 bg-black bg-opacity-50 z-50 flex justify-center items-center p-4">
+            <div className="bg-white p-8 rounded-lg shadow-2xl w-full max-w-md">
                 <div className="flex justify-between items-center mb-6">
                    <h2 className="text-2xl font-bold text-slate-800">Edit Employee: {user.username}</h2>
                    <button onClick={onClose} className="text-slate-500 hover:text-slate-800"><X className="h-6 w-6" /></button>
