@@ -20,10 +20,10 @@ const initialUsers = {
 };
 
 const initialInventory = [
-  { id: 1, name: 'Company Tumbler', basePoints: 500, points: 500, stock: 10, image: 'https://placehold.co/150x150/e2e8f0/4a5568?text=PinnPoints },
-  { id: 2, name: 'Branded Hoodie', basePoints: 1200, points: 1200, stock: 5, image: 'https://placehold.co/150x150/e2e8f0/4a5568?text=PinnPoints' },
-  { id: 3, name: 'Wireless Mouse', basePoints: 800, points: 800, stock: 15, image: 'https://placehold.co/150x150/e2e8f0/4a5568?text=PinnPoints' },
-  { id: 4, name: 'Pinnacle Notebook Set', basePoints: 350, points: 350, stock: 20, image: 'https://placehold.co/150x150/e2e8f0/4a5568?text=PinnPoints' },
+  { id: 1, name: 'Company Tumbler', basePoints: 500, points: 500, stock: 10, image: 'https://placehold.co/400x400/e2e8f0/4a5568?text=Tumbler' },
+  { id: 2, name: 'Branded Hoodie', basePoints: 1200, points: 1200, stock: 5, image: 'https://placehold.co/400x400/e2e8f0/4a5568?text=Hoodie' },
+  { id: 3, name: 'Wireless Mouse', basePoints: 800, points: 800, stock: 15, image: 'https://placehold.co/400x400/e2e8f0/4a5568?text=Mouse' },
+  { id: 4, name: 'Pinnacle Notebook Set', basePoints: 350, points: 350, stock: 20, image: 'https://placehold.co/400x400/e2e8f0/4a5568?text=Notebook' },
 ];
 
 const themes = {
