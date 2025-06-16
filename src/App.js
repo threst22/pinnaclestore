@@ -20,10 +20,10 @@ const initialUsers = {
 };
 
 const initialInventory = [
-  { id: 1, name: 'Company Tumbler', basePoints: 500, points: 500, stock: 10, image: 'https://placehold.co/400x400/e2e8f0/4a5568?text=Tumbler' },
-  { id: 2, name: 'Branded Hoodie', basePoints: 1200, points: 1200, stock: 5, image: 'https://placehold.co/400x400/e2e8f0/4a5568?text=Hoodie' },
-  { id: 3, name: 'Wireless Mouse', basePoints: 800, points: 800, stock: 15, image: 'https://placehold.co/400x400/e2e8f0/4a5568?text=Mouse' },
-  { id: 4, name: 'Pinnacle Notebook Set', basePoints: 350, points: 350, stock: 20, image: 'https://placehold.co/400x400/e2e8f0/4a5568?text=Notebook' },
+  { id: 1, name: 'Company Tumbler', basePoints: 500, points: 500, stock: 10, image: 'https://placehold.co/150x150/e2e8f0/4a5568?text=PinnPoints },
+  { id: 2, name: 'Branded Hoodie', basePoints: 1200, points: 1200, stock: 5, image: 'https://placehold.co/150x150/e2e8f0/4a5568?text=PinnPoints' },
+  { id: 3, name: 'Wireless Mouse', basePoints: 800, points: 800, stock: 15, image: 'https://placehold.co/150x150/e2e8f0/4a5568?text=PinnPoints' },
+  { id: 4, name: 'Pinnacle Notebook Set', basePoints: 350, points: 350, stock: 20, image: 'https://placehold.co/150x150/e2e8f0/4a5568?text=PinnPoints' },
 ];
 
 const themes = {
@@ -1021,68 +1021,100 @@ const CheckoutPOS = ({ users, inventory, executePurchase, showNotification }) =>
 };
 
 const InventoryManagement = ({ inventory, setInventory, showNotification, appSettings }) => {
-    const [showModal, setShowModal] = useState(false);
-    const [editingItem, setEditingItem] = useState(null);
+    const [editingRowId, setEditingRowId] = useState(null);
+    const [editFormData, setEditFormData] = useState({});
+    const [isAdding, setIsAdding] = useState(false);
+    const [newItemData, setNewItemData] = useState({ name: '', basePoints: '', stock: '', image: '' });
     const inventoryFileInputRef = useRef(null);
-    
-    const handleAddItem = () => {
-        setEditingItem(null);
-        setShowModal(true);
+
+    const handleEditClick = (item) => {
+        setEditingRowId(item.id);
+        setEditFormData({ ...item });
     };
 
-    const handleEditItem = (item) => {
-        setEditingItem(item);
-        setShowModal(true);
+    const handleCancelClick = () => {
+        setEditingRowId(null);
+    };
+
+    const handleEditFormChange = (event) => {
+        const { name, value } = event.target;
+        setEditFormData({ ...editFormData, [name]: value });
+    };
+
+    const handleSaveClick = (itemId) => {
+        const { name, basePoints, stock, image } = editFormData;
+        if (!name || basePoints === '' || stock === '') {
+            showNotification('Name, Base Points, and Stock are required.', 'error');
+            return;
+        }
+
+        const currentInflation = appSettings.inflation || 0;
+        const calculatedPoints = Math.round(Number(basePoints) * (1 + currentInflation / 100));
+
+        const updatedInventory = inventory.map((item) => {
+            if (item.id === itemId) {
+                return { 
+                    ...editFormData,
+                    basePoints: Number(basePoints),
+                    stock: Number(stock),
+                    points: calculatedPoints
+                };
+            }
+            return item;
+        });
+
+        setInventory(updatedInventory);
+        setEditingRowId(null);
+        showNotification('Item updated successfully.', 'success');
     };
 
     const handleDeleteItem = (itemId) => {
-        // A simple confirmation dialog. For a real app, a custom modal is better.
-        if (window.confirm("Are you sure you want to delete this item? This action cannot be undone.")) {
+        if (window.confirm("Are you sure you want to delete this item?")) {
             setInventory(prev => prev.filter(item => item.id !== itemId));
             showNotification("Item deleted successfully.", "success");
         }
     };
-    
-    const handleSaveItem = (itemData) => {
-        const currentInflation = appSettings.inflation || 0;
-        const calculatedPoints = Math.round(itemData.basePoints * (1 + currentInflation / 100));
 
-        if (editingItem) {
-            setInventory(prev => prev.map(item => 
-                item.id === editingItem.id 
-                    ? { ...item, ...itemData, points: calculatedPoints } 
-                    : item
-            ));
-            showNotification("Item updated successfully.");
-        } else {
-            const newItem = { 
-                id: Date.now(), 
-                ...itemData,
-                points: calculatedPoints,
-            };
-            setInventory(prev => [...prev, newItem]);
-            showNotification("Item added successfully.");
+    const handleAddNewItem = (event) => {
+        event.preventDefault();
+        const { name, basePoints, stock, image } = newItemData;
+        if (!name || basePoints === '' || stock === '') {
+            showNotification('Name, Base Points, and Stock are required.', 'error');
+            return;
         }
-        setShowModal(false);
+        
+        const currentInflation = appSettings.inflation || 0;
+        const calculatedPoints = Math.round(Number(basePoints) * (1 + currentInflation / 100));
+
+        const newItem = {
+            id: Date.now(),
+            name,
+            basePoints: Number(basePoints),
+            stock: Number(stock),
+            image: image || `https://placehold.co/100x100/e2e8f0/4a5568?text=${encodeURIComponent(name)}`,
+            points: calculatedPoints,
+        };
+
+        setInventory(prev => [newItem, ...prev]);
+        showNotification("Item added successfully.", "success");
+        setNewItemData({ name: '', basePoints: '', stock: '', image: '' });
+        setIsAdding(false);
+    };
+
+    const handleNewItemFormChange = (event) => {
+        const { name, value } = event.target;
+        setNewItemData(prev => ({ ...prev, [name]: value }));
     };
 
     const handleDownloadInventoryTemplate = () => {
-        if (!window.XLSX) {
-            showNotification("Excel library not loaded, please wait.", "warning");
-            return;
-        }
-        const templateData = [{
-            name: "Sample Hoodie",
-            basePoints: 1500,
-            stock: 10,
-            image: "https://placehold.co/400x400/cccccc/444444?text=Sample"
-        }];
+        if (!window.XLSX) { showNotification("Library not loaded, please wait.", "warning"); return; }
+        const templateData = [{ name: "Sample Item", basePoints: 100, stock: 20, image: "https://placehold.co/100x100?text=Item" }];
         const ws = window.XLSX.utils.json_to_sheet(templateData);
         const wb = window.XLSX.utils.book_new();
         window.XLSX.utils.book_append_sheet(wb, ws, "Inventory");
         window.XLSX.writeFile(wb, "inventory_template.xlsx");
     };
-    
+
     const handleInventoryUpload = (event) => {
         const file = event.target.files[0];
         if (!file || !window.XLSX) return;
@@ -1096,10 +1128,7 @@ const InventoryManagement = ({ inventory, setInventory, showNotification, appSet
                 const worksheet = workbook.Sheets[sheetName];
                 const json = window.XLSX.utils.sheet_to_json(worksheet);
 
-                if (json.length === 0) {
-                    showNotification("The uploaded file is empty.", "warning");
-                    return;
-                }
+                if (!json.length) { showNotification("File is empty.", "warning"); return; }
 
                 const currentInflation = appSettings.inflation || 0;
                 const newItems = json.map((row, index) => {
@@ -1117,20 +1146,18 @@ const InventoryManagement = ({ inventory, setInventory, showNotification, appSet
                         basePoints: basePoints,
                         points: Math.round(basePoints * (1 + currentInflation / 100)),
                         stock: stock,
-                        image: row.image || 'https://placehold.co/400x400/e2e8f0/4a5568?text=New+Item'
+                        image: row.image || `https://placehold.co/100x100/e2e8f0/4a5568?text=New`
                     };
                 }).filter(Boolean);
 
                 if (newItems.length > 0) {
                     setInventory(prev => [...prev, ...newItems]);
-                    showNotification(`${newItems.length} new item(s) added from the file.`, "success");
+                    showNotification(`${newItems.length} new item(s) added.`, "success");
                 } else {
-                    showNotification("No valid items found in the file. Check column names (name, basePoints, stock).", "error");
+                    showNotification("No valid items found. Check file columns.", "error");
                 }
-
             } catch (error) {
-                console.error("Error parsing Excel file:", error);
-                showNotification("Failed to parse file. Please use the template.", "error");
+                showNotification("Failed to parse file.", "error");
             }
         };
         reader.readAsArrayBuffer(file);
@@ -1147,20 +1174,34 @@ const InventoryManagement = ({ inventory, setInventory, showNotification, appSet
                     </button>
                     <input type="file" ref={inventoryFileInputRef} onChange={handleInventoryUpload} className="hidden" accept=".xlsx, .xls, .csv"/>
                     <button onClick={() => inventoryFileInputRef.current.click()} className="flex items-center bg-green-600 text-white px-3 py-2 rounded-lg hover:bg-green-700 transition-colors text-sm">
-                        <Upload className="h-4 w-4 mr-2" /> Upload Items
+                        <Upload className="h-4 w-4 mr-2" /> Upload
                     </button>
-                    <button onClick={handleAddItem} className="flex items-center bg-primary text-white px-3 py-2 rounded-lg hover:bg-primary-dark transition-colors text-sm">
-                        <PlusCircle className="h-4 w-4 mr-2" /> Add Manually
+                    <button onClick={() => setIsAdding(!isAdding)} className="flex items-center bg-primary text-white px-3 py-2 rounded-lg hover:bg-primary-dark transition-colors text-sm">
+                        {isAdding ? <XCircle className="h-4 w-4 mr-2" /> : <PlusCircle className="h-4 w-4 mr-2" />}
+                        {isAdding ? 'Cancel Add' : 'Add Item'}
                     </button>
                 </div>
             </div>
+
+            {isAdding && (
+                <form onSubmit={handleAddNewItem} className="p-4 border rounded-lg bg-slate-50 mb-4 animate-fade-down">
+                    <div className="grid grid-cols-1 md:grid-cols-5 gap-4">
+                        <input type="text" name="name" placeholder="Item Name" value={newItemData.name} onChange={handleNewItemFormChange} className="form-input md:col-span-2" required />
+                        <input type="number" name="basePoints" placeholder="Base Points" value={newItemData.basePoints} onChange={handleNewItemFormChange} className="form-input" required />
+                        <input type="number" name="stock" placeholder="Stock" value={newItemData.stock} onChange={handleNewItemFormChange} className="form-input" required />
+                        <input type="text" name="image" placeholder="Image URL (optional)" value={newItemData.image} onChange={handleNewItemFormChange} className="form-input" />
+                    </div>
+                    <div className="flex justify-end gap-2 mt-4">
+                        <button type="submit" className="flex items-center bg-green-500 text-white px-4 py-2 rounded-lg hover:bg-green-600 text-sm">Save New Item</button>
+                    </div>
+                </form>
+            )}
+
             <div className="overflow-x-auto">
                 <table className="w-full text-sm text-left text-slate-500">
                     <thead className="text-xs text-slate-700 uppercase bg-slate-50">
                         <tr>
-                            <th scope="col" className="px-6 py-3">Image</th>
-                            <th scope="col" className="px-6 py-3">Item Name</th>
-                            <th scope="col" className="px-6 py-3">Current Points</th>
+                            <th scope="col" className="px-6 py-3 w-2/5">Item</th>
                             <th scope="col" className="px-6 py-3">Base Points</th>
                             <th scope="col" className="px-6 py-3">Stock</th>
                             <th scope="col" className="px-6 py-3 text-right">Actions</th>
@@ -1168,97 +1209,53 @@ const InventoryManagement = ({ inventory, setInventory, showNotification, appSet
                     </thead>
                     <tbody>
                         {inventory.map(item => (
-                            <tr key={item.id} className="bg-white border-b hover:bg-slate-50">
-                                <td className="px-6 py-4">
-                                    <img src={item.image} alt={item.name} className="h-12 w-12 rounded-md object-cover" onError={(e) => { e.target.onerror = null; e.target.src='https://placehold.co/100x100/e2e8f0/4a5568?text=Err'; }}/>
-                                </td>
-                                <th scope="row" className="px-6 py-4 font-medium text-slate-900 whitespace-nowrap">{item.name}</th>
-                                <td className="px-6 py-4 font-semibold">{item.points}</td>
-                                <td className="px-6 py-4">{item.basePoints}</td>
-                                <td className="px-6 py-4">{item.stock}</td>
-                                <td className="px-6 py-4 text-right">
-                                    <div className="flex justify-end space-x-2">
-                                      <button onClick={() => handleEditItem(item)} className="p-2 text-blue-600 hover:bg-blue-100 rounded-full"><Edit className="h-5 w-5"/></button>
-                                      <button onClick={() => handleDeleteItem(item.id)} className="p-2 text-red-600 hover:bg-red-100 rounded-full"><Trash2 className="h-5 w-5"/></button>
-                                    </div>
-                                </td>
+                            <tr key={item.id} className="bg-white border-b hover:bg-slate-50 align-middle">
+                                {editingRowId === item.id ? (
+                                    <>
+                                        <td className="px-6 py-2">
+                                            <div className="flex items-center gap-2">
+                                                <img src={editFormData.image || 'https://placehold.co/100x100/e2e8f0/4a5568?text=Img'} alt={editFormData.name} className="h-12 w-12 rounded-md object-cover"/>
+                                                <div className="flex-grow">
+                                                    <input type="text" name="name" value={editFormData.name} onChange={handleEditFormChange} className="form-input text-sm p-1" />
+                                                    <input type="text" name="image" value={editFormData.image} onChange={handleEditFormChange} className="form-input text-xs p-1 mt-1" placeholder="Image URL" />
+                                                </div>
+                                            </div>
+                                        </td>
+                                        <td className="px-6 py-2">
+                                            <input type="number" name="basePoints" value={editFormData.basePoints} onChange={handleEditFormChange} className="form-input w-24 p-1 text-sm" />
+                                        </td>
+                                        <td className="px-6 py-2">
+                                            <input type="number" name="stock" value={editFormData.stock} onChange={handleEditFormChange} className="form-input w-24 p-1 text-sm" />
+                                        </td>
+                                        <td className="px-6 py-2 text-right">
+                                            <div className="flex justify-end space-x-2">
+                                                <button onClick={() => handleSaveClick(item.id)} className="p-2 text-green-600 hover:bg-green-100 rounded-full" title="Save"><CheckCircle className="h-5 w-5"/></button>
+                                                <button onClick={handleCancelClick} className="p-2 text-slate-600 hover:bg-slate-100 rounded-full" title="Cancel"><XCircle className="h-5 w-5"/></button>
+                                            </div>
+                                        </td>
+                                    </>
+                                ) : (
+                                    <>
+                                        <td className="px-6 py-4 font-medium text-slate-900 whitespace-nowrap">
+                                            <div className="flex items-center gap-4">
+                                                <img src={item.image} alt={item.name} className="h-12 w-12 rounded-md object-cover" onError={(e) => { e.target.onerror = null; e.target.src='https://placehold.co/100x100/e2e8f0/4a5568?text=Err'; }}/>
+                                                {item.name}
+                                            </div>
+                                        </td>
+                                        <td className="px-6 py-4">{item.basePoints}</td>
+                                        <td className="px-6 py-4">{item.stock}</td>
+                                        <td className="px-6 py-4 text-right">
+                                            <div className="flex justify-end space-x-2">
+                                                <button onClick={() => handleEditClick(item)} className="p-2 text-blue-600 hover:bg-blue-100 rounded-full" title="Edit"><Edit className="h-5 w-5"/></button>
+                                                <button onClick={() => handleDeleteItem(item.id)} className="p-2 text-red-600 hover:bg-red-100 rounded-full" title="Delete"><Trash2 className="h-5 w-5"/></button>
+                                            </div>
+                                        </td>
+                                    </>
+                                )}
                             </tr>
                         ))}
                     </tbody>
                 </table>
-            </div>
-            {showModal && <ItemModal item={editingItem} onClose={() => setShowModal(false)} onSave={handleSaveItem} showNotification={showNotification} />}
-        </div>
-    );
-};
-
-const ItemModal = ({ item, onClose, onSave, showNotification }) => {
-    const [name, setName] = useState(item?.name || '');
-    const [basePoints, setBasePoints] = useState(item?.basePoints || '');
-    const [stock, setStock] = useState(item?.stock || '');
-    const [image, setImage] = useState(item?.image || '');
-    const fileInputRef = useRef(null);
-
-    const handleFileChange = (event) => {
-        const file = event.target.files[0];
-        if (!file) return;
-
-        if (file.size > 2 * 1024 * 1024) { // 2MB limit
-            showNotification('Image file is too large (max 2MB).', 'error');
-            return;
-        }
-
-        const reader = new FileReader();
-        reader.onloadend = () => {
-            setImage(reader.result);
-        };
-        reader.readAsDataURL(file);
-    };
-    
-    const handleSubmit = (e) => {
-        e.preventDefault();
-        onSave({ name, basePoints: Number(basePoints), stock: Number(stock), image });
-    };
-
-    return (
-        <div className="fixed inset-0 bg-black bg-opacity-60 z-50 flex justify-center items-center p-4">
-            <div className="bg-white p-8 rounded-lg shadow-2xl w-full max-w-md">
-                <div className="flex justify-between items-center mb-6">
-                   <h2 className="text-2xl font-bold text-slate-800">{item ? 'Edit Item' : 'Add New Item'}</h2>
-                   <button onClick={onClose} className="text-slate-500 hover:text-slate-800"><X className="h-6 w-6" /></button>
-                </div>
-                <form onSubmit={handleSubmit} className="space-y-4">
-                    <div>
-                        <label className="block text-sm font-medium text-slate-700">Item Name</label>
-                        <input type="text" value={name} onChange={e => setName(e.target.value)} className="mt-1 w-full form-input" required />
-                    </div>
-                    <div>
-                        <label className="block text-sm font-medium text-slate-700">Base Points Cost</label>
-                        <input type="number" value={basePoints} onChange={e => setBasePoints(e.target.value)} className="mt-1 w-full form-input" required />
-                    </div>
-                    <div>
-                        <label className="block text-sm font-medium text-slate-700">Stock</label>
-                        <input type="number" value={stock} onChange={e => setStock(e.target.value)} className="mt-1 w-full form-input" required />
-                    </div>
-                    <div>
-                        <label className="block text-sm font-medium text-slate-700">Image</label>
-                        <div className="mt-1 flex items-center gap-4">
-                           <img 
-                            src={image || 'https://placehold.co/100x100/e2e8f0/4a5568?text=No+Image'} 
-                            alt="Preview" 
-                            className="h-20 w-20 rounded-md object-cover bg-slate-100"
-                           />
-                           <input type="file" ref={fileInputRef} onChange={handleFileChange} className="hidden" accept="image/png, image/jpeg, image/gif"/>
-                           <button type="button" onClick={() => fileInputRef.current.click()} className="px-4 py-2 rounded-lg bg-slate-200 hover:bg-slate-300 text-sm">
-                                Upload Picture
-                           </button>
-                        </div>
-                    </div>
-                    <div className="flex justify-end space-x-3 pt-4">
-                        <button type="button" onClick={onClose} className="px-4 py-2 rounded-lg bg-slate-200 hover:bg-slate-300">Cancel</button>
-                        <button type="submit" className="px-4 py-2 rounded-lg bg-primary text-white hover:bg-primary-dark">Save Item</button>
-                    </div>
-                </form>
             </div>
         </div>
     );
