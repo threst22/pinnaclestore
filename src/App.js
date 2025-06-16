@@ -21,7 +21,9 @@ import {
     onSnapshot, 
     addDoc,
     deleteDoc,
-    writeBatch
+    writeBatch,
+    where,
+    getDocs
 } from 'firebase/firestore';
 
 
@@ -313,7 +315,6 @@ export default function App() {
         return <StorePage 
             user={currentUserData}
             users={users}
-            setUsers={setUsers}
             inventory={inventory} 
             onLogout={handleLogout} 
             showNotification={showNotification} 
@@ -467,7 +468,7 @@ const Header = ({ user, onLogout, isAdmin, cartItemCount, onCartClick, appSettin
   </header>
 );
 
-const StorePage = ({ user, inventory, onLogout, showNotification, appSettings, purchaseHistory, cart, setCart, setView }) => {
+const StorePage = ({ user, users, inventory, onLogout, showNotification, appSettings, purchaseHistory, cart, setCart, setView }) => {
   const [storeView, setStoreView] = useState('store'); // store, notifications
   
   const unreadCount = user.notifications.filter(n => !n.read).length;
