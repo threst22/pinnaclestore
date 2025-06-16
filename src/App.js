@@ -70,7 +70,6 @@ export default function App() {
     const [currentUser, setCurrentUser] = useState(null);
     const [currentUserData, setCurrentUserData] = useState(null);
     const [view, setView] = useState('loading');
-    const [errorMessage, setErrorMessage] = useState('');
     const [users, setUsers] = useState({});
     const [inventory, setInventory] = useState([]);
     const [pendingOrders, setPendingOrders] = useState([]);
@@ -91,7 +90,6 @@ export default function App() {
     useEffect(() => {
         if (!firebaseConfig || !firebaseConfig.apiKey) {
             console.error("Firebase Configuration is missing or invalid.");
-            setErrorMessage("Firebase configuration is missing. Ensure REACT_APP_FIREBASE_CONFIG is set in your environment.");
             setView('error');
             return;
         }
@@ -103,7 +101,6 @@ export default function App() {
             loadScript('https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js', 'xlsx-script');
         } catch (error) {
             console.error("Firebase Initialization Error:", error);
-            setErrorMessage(`Firebase Initialization Error: ${error.message}`);
             setView('error');
         }
     }, []);
@@ -126,7 +123,6 @@ export default function App() {
                         }
                     } catch (error) {
                         console.error("Sign-in error:", error);
-                        setErrorMessage(`Authentication failed: ${error.message}. Please check your Firebase Authentication settings (Anonymous sign-in may be disabled).`);
                         setView('error');
                     }
                 })();
@@ -199,7 +195,6 @@ export default function App() {
             }
         }).catch(error => {
             console.error("Error fetching or creating user data:", error);
-            setErrorMessage(`Database access failed: ${error.message}. Please check your Firestore security rules to ensure authenticated users can read/write their own profile.`);
             setView('error');
         });
 
@@ -371,7 +366,7 @@ export default function App() {
 
 
     const renderContent = () => {
-        if (view === 'error') return <ErrorPage message="A critical error occurred." details={errorMessage} />;
+        if (view === 'error') return <ErrorPage message="A critical error occurred." />;
         if (view === 'loading' || !currentUserData) return <div className="flex items-center justify-center min-h-screen text-lg font-semibold">Loading Application...</div>;
         
         switch (view) {
