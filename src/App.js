@@ -28,12 +28,13 @@ import {
 // --- Firebase Configuration ---
 // This would be replaced with your actual Firebase config
 const firebaseConfig = {
-  apiKey: "YOUR_API_KEY",
-  authDomain: "YOUR_AUTH_DOMAIN",
-  projectId: "YOUR_PROJECT_ID",
-  storageBucket: "YOUR_STORAGE_BUCKET",
-  messagingSenderId: "YOUR_MESSAGING_SENDER_ID",
-  appId: "YOUR_APP_ID"
+  apiKey: "AIzaSyCmLFfYWWdwHfFT5Wzl_QmirNe9iluO7Pw",
+  authDomain: "pinnaclestore-e5cb7.firebaseapp.com",
+  projectId: "pinnaclestore-e5cb7",
+  storageBucket: "pinnaclestore-e5cb7.firebasestorage.app",
+  messagingSenderId: "796733964263",
+  appId: "1:796733964263:web:4077ad4633c93ca74d8742",
+  measurementId: "G-L99FF0D96V"
 };
 
 
