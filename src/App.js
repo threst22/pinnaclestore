@@ -26,12 +26,12 @@ import {
 
 
 // --- Firebase Configuration ---
-// This would be replaced with your actual Firebase config
+// This should be replaced with your actual Firebase config
 const firebaseConfig = {
   apiKey: "AIzaSyCmLFfYWWdwHfFT5Wzl_QmirNe9iluO7Pw",
   authDomain: "pinnaclestore-e5cb7.firebaseapp.com",
   projectId: "pinnaclestore-e5cb7",
-  storageBucket: "pinnaclestore-e5cb7.firebasestorage.app",
+  storageBucket: "pinnaclestore-e5cb7.appspot.com",
   messagingSenderId: "796733964263",
   appId: "1:796733964263:web:4077ad4633c93ca74d8742",
   measurementId: "G-L99FF0D96V"
@@ -76,6 +76,7 @@ export default function App() {
   useEffect(() => {
     // Auth listener
     const unsubscribe = onAuthStateChanged(auth, async (user) => {
+      try {
         if (user) {
             const userDocRef = doc(db, 'users', user.uid);
             const userDocSnap = await getDoc(userDocRef);
@@ -84,7 +85,6 @@ export default function App() {
                 const userData = { uid: user.uid, email: user.email, ...userDocSnap.data() };
                 setCurrentUserData(userData);
                 
-                // Firestore real-time listeners
                 const unsubUsers = onSnapshot(query(collection(db, 'users')), (snapshot) => {
                     const usersData = {};
                     snapshot.forEach(doc => usersData[doc.id] = { ...doc.data(), uid: doc.id });
@@ -119,7 +119,6 @@ export default function App() {
                     unsubHistory();
                 }
             } else {
-                // User exists in auth but not in firestore, handle this case
                 setView('login');
                 setCurrentUser(null);
                 setCurrentUserData(null);
@@ -129,6 +128,10 @@ export default function App() {
             setCurrentUser(null);
             setCurrentUserData(null);
         }
+      } catch (error) {
+          console.error("Error during auth state change:", error);
+          setView('login'); // Fallback to login screen on error
+      }
     });
 
     return () => unsubscribe();
@@ -892,7 +895,7 @@ const AppSettingsPage = ({ appSettings, setAppSettings, showNotification }) => {
     );
 };
 
-const ApprovalQueue = ({ pendingOrders, setPendingOrders, users, executePurchase, showNotification, addNotification }) => {
+const ApprovalQueue = ({ pendingOrders, users, executePurchase, showNotification, addNotification }) => {
     
     const handleApprove = async (order) => {
         const result = await executePurchase(order.employeeId, order.cart, true);
