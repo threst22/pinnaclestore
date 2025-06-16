@@ -1026,6 +1026,7 @@ const InventoryManagement = ({ inventory, setInventory, showNotification, appSet
     const [isAdding, setIsAdding] = useState(false);
     const [newItemData, setNewItemData] = useState({ name: '', basePoints: '', stock: '', image: '' });
     const inventoryFileInputRef = useRef(null);
+    const editFileInputRef = useRef(null);
 
     const handleEditClick = (item) => {
         setEditingRowId(item.id);
@@ -1042,7 +1043,7 @@ const InventoryManagement = ({ inventory, setInventory, showNotification, appSet
     };
 
     const handleSaveClick = (itemId) => {
-        const { name, basePoints, stock, image } = editFormData;
+        const { name, basePoints, stock } = editFormData;
         if (!name || basePoints === '' || stock === '') {
             showNotification('Name, Base Points, and Stock are required.', 'error');
             return;
@@ -1067,6 +1068,21 @@ const InventoryManagement = ({ inventory, setInventory, showNotification, appSet
         setEditingRowId(null);
         showNotification('Item updated successfully.', 'success');
     };
+    
+    const handleEditImageChange = (event) => {
+        const file = event.target.files[0];
+        if (!file) return;
+        if (file.size > 2 * 1024 * 1024) { // 2MB limit
+            showNotification('Image file is too large (max 2MB).', 'error');
+            return;
+        }
+        const reader = new FileReader();
+        reader.onloadend = () => {
+            setEditFormData(prev => ({...prev, image: reader.result}));
+        };
+        reader.readAsDataURL(file);
+    };
+
 
     const handleDeleteItem = (itemId) => {
         if (window.confirm("Are you sure you want to delete this item?")) {
@@ -1166,6 +1182,13 @@ const InventoryManagement = ({ inventory, setInventory, showNotification, appSet
 
     return (
         <div className="bg-white p-6 rounded-xl shadow-lg">
+             <input
+                type="file"
+                ref={editFileInputRef}
+                onChange={handleEditImageChange}
+                className="hidden"
+                accept="image/png, image/jpeg, image/gif"
+            />
             <div className="flex flex-wrap justify-between items-center mb-4 gap-3">
                 <h3 className="text-xl font-bold text-slate-700">Manage Inventory</h3>
                 <div className="flex items-center gap-2">
@@ -1215,9 +1238,9 @@ const InventoryManagement = ({ inventory, setInventory, showNotification, appSet
                                         <td className="px-6 py-2">
                                             <div className="flex items-center gap-2">
                                                 <img src={editFormData.image || 'https://placehold.co/100x100/e2e8f0/4a5568?text=Img'} alt={editFormData.name} className="h-12 w-12 rounded-md object-cover"/>
-                                                <div className="flex-grow">
-                                                    <input type="text" name="name" value={editFormData.name} onChange={handleEditFormChange} className="form-input text-sm p-1" />
-                                                    <input type="text" name="image" value={editFormData.image} onChange={handleEditFormChange} className="form-input text-xs p-1 mt-1" placeholder="Image URL" />
+                                                <div className="flex-grow space-y-1">
+                                                    <input type="text" name="name" value={editFormData.name} onChange={handleEditFormChange} className="form-input text-sm p-1 w-full" />
+                                                    <button type="button" onClick={() => editFileInputRef.current.click()} className="text-xs bg-slate-200 hover:bg-slate-300 px-2 py-1 rounded-md w-full">Upload Picture</button>
                                                 </div>
                                             </div>
                                         </td>
