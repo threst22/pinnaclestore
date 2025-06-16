@@ -26,13 +26,16 @@ import {
 
 // --- Firebase Configuration & App ID ---
 // These will be provided by the environment. For Netlify, use Environment Variables.
-const firebaseConfig = window.__firebase_config
+const isBrowser = typeof window !== 'undefined';
+
+const firebaseConfig = isBrowser && window.__firebase_config
   ? JSON.parse(window.__firebase_config)
   : (process.env.REACT_APP_FIREBASE_CONFIG ? JSON.parse(process.env.REACT_APP_FIREBASE_CONFIG) : {});
 
-const appId = window.__app_id || process.env.REACT_APP_APP_ID || 'pinnpoints-store-default';
+const appId = (isBrowser && window.__app_id) || process.env.REACT_APP_APP_ID || 'pinnpoints-store-default';
 
-const initialAuthToken = window.__initial_auth_token || process.env.REACT_APP_INITIAL_AUTH_TOKEN || null;
+const initialAuthToken = (isBrowser && window.__initial_auth_token) || process.env.REACT_APP_INITIAL_AUTH_TOKEN || null;
+
 
 // --- Firestore Collection Paths ---
 const collections = {
@@ -67,6 +70,7 @@ export default function App() {
     const [currentUser, setCurrentUser] = useState(null);
     const [currentUserData, setCurrentUserData] = useState(null);
     const [view, setView] = useState('loading');
+    const [errorMessage, setErrorMessage] = useState('');
     const [users, setUsers] = useState({});
     const [inventory, setInventory] = useState([]);
     const [pendingOrders, setPendingOrders] = useState([]);
@@ -85,6 +89,12 @@ export default function App() {
 
     // --- Initialize Firebase ---
     useEffect(() => {
+        if (!firebaseConfig || !firebaseConfig.apiKey) {
+            console.error("Firebase Configuration is missing or invalid.");
+            setErrorMessage("Firebase configuration is missing. Ensure REACT_APP_FIREBASE_CONFIG is set in your environment.");
+            setView('error');
+            return;
+        }
         try {
             const app = initializeApp(firebaseConfig);
             const auth = getAuth(app);
@@ -93,6 +103,7 @@ export default function App() {
             loadScript('https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js', 'xlsx-script');
         } catch (error) {
             console.error("Firebase Initialization Error:", error);
+            setErrorMessage(`Firebase Initialization Error: ${error.message}`);
             setView('error');
         }
     }, []);
@@ -106,7 +117,6 @@ export default function App() {
             if (user) {
                 setCurrentUser(user);
             } else {
-                // If not logged in, attempt to sign in with token or anonymously
                 (async () => {
                     try {
                         if (initialAuthToken) {
@@ -116,6 +126,7 @@ export default function App() {
                         }
                     } catch (error) {
                         console.error("Sign-in error:", error);
+                        setErrorMessage(`Authentication failed: ${error.message}. Please check your Firebase Authentication settings (Anonymous sign-in may be disabled).`);
                         setView('error');
                     }
                 })();
@@ -151,19 +162,13 @@ export default function App() {
                 const historyData = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
                 setPurchaseHistory(historyData);
             }));
-            // Watch for changes in the current user's document
             unsubscribers.push(onSnapshot(userDocRef, (docSnap) => {
                  if(docSnap.exists()){
                      setCurrentUserData({ uid: currentUser.uid, email: currentUser.email, ...docSnap.data() });
                  }
             }));
 
-            // Set initial view
-            if (userData.requiresPasswordChange) {
-                setView('forceChangePasswordPage');
-            } else {
-                setView(userData.role === 'admin' ? 'admin' : 'store');
-            }
+            setView(userData.role === 'admin' ? 'admin' : 'store');
             return unsubscribers;
         };
 
@@ -175,14 +180,11 @@ export default function App() {
                 setCurrentUserData(userData);
                 activeListeners = setupListeners(userData);
             } else {
-                // User is authenticated but has no data record. Create one.
                 const usersCollectionRef = collection(db, collections.users);
                 const allUsersSnapshot = await getDocs(query(usersCollectionRef));
                 const isFirstUser = allUsersSnapshot.empty;
-                
                 const role = isFirstUser ? 'admin' : 'employee';
                 const name = currentUser.email ? currentUser.email.split('@')[0] : `User-${currentUser.uid.substring(0,5)}`;
-
                 const newUserData = {
                     uid: currentUser.uid,
                     email: currentUser.email || `${currentUser.uid.substring(0, 5)}@anonymous.com`,
@@ -190,20 +192,17 @@ export default function App() {
                     points: role === 'admin' ? 9999 : 500,
                     role: role,
                     notifications: [],
-                    requiresPasswordChange: false,
                 };
-                
                 await setDoc(userDocRef, newUserData);
-                
                 setCurrentUserData(newUserData);
                 activeListeners = setupListeners(newUserData);
             }
         }).catch(error => {
             console.error("Error fetching or creating user data:", error);
+            setErrorMessage(`Database access failed: ${error.message}. Please check your Firestore security rules to ensure authenticated users can read/write their own profile.`);
             setView('error');
         });
 
-        // App Settings Listener
         const settingsDocRef = doc(db, collections.appSettings, 'config');
         const settingsUnsub = onSnapshot(settingsDocRef, (doc) => {
             if (doc.exists()) {
@@ -267,12 +266,8 @@ export default function App() {
         }
     }, [firebaseServices]);
 
-    const handleChangePassword = async (newPassword) => {
-        // Password functionality is disabled with token-based auth
-        showNotification("Password management is disabled in this environment.", "info");
-    };
-
     const handleLogout = async () => {
+        if (!firebaseServices) return;
         const { auth } = firebaseServices;
         try {
             await signOut(auth);
@@ -376,12 +371,10 @@ export default function App() {
 
 
     const renderContent = () => {
-        if (view === 'error') return <ErrorPage message="A critical error occurred. Please refresh the page or contact support." />;
-        if (view === 'unauthorized') return <ErrorPage message="You are not authorized to access this application." icon={<ShieldAlert size={48} />} />;
+        if (view === 'error') return <ErrorPage message="A critical error occurred." details={errorMessage} />;
         if (view === 'loading' || !currentUserData) return <div className="flex items-center justify-center min-h-screen text-lg font-semibold">Loading Application...</div>;
         
         switch (view) {
-            case 'forceChangePasswordPage': return <ForceChangePasswordPage onPasswordChange={handleChangePassword} />;
             case 'cart':
                 return <CartPage
                     cart={cart}
@@ -458,11 +451,17 @@ const Modal = ({ modal, onClose }) => {
     );
 };
 
-const ErrorPage = ({ message, icon }) => (
+const ErrorPage = ({ message, details }) => (
     <div className="flex items-center justify-center min-h-screen text-red-500 font-semibold text-center p-4 bg-red-50">
-        <div className="flex flex-col items-center gap-4">
-            {icon || <XCircle size={48} />}
+        <div className="flex flex-col items-center gap-4 max-w-2xl">
+            <ShieldAlert size={48} className="text-red-500"/>
             <h1 className="text-2xl text-slate-800">{message}</h1>
+            {details && (
+                <div className="mt-2 p-3 bg-red-100 border border-red-200 rounded-md text-left text-sm text-red-800">
+                    <p className="font-bold mb-1">Error Details:</p>
+                    <code>{details}</code>
+                </div>
+            )}
         </div>
     </div>
 );
@@ -707,44 +706,6 @@ const CartPage = ({ user, onLogout, cart, onUpdateQuantity, onConfirmPurchase, u
                     )}
                 </div>
             </main>
-        </div>
-    );
-};
-
-const ForceChangePasswordPage = ({ onPasswordChange }) => {
-    // This page is kept for structural integrity but is unlikely to be reached
-    // with the new authentication flow.
-    const [newPassword, setNewPassword] = useState('');
-    const [confirmPassword, setConfirmPassword] = useState('');
-    const [error, setError] = useState('');
-
-    const handleSubmit = (e) => {
-        e.preventDefault();
-        if (newPassword.length < 6) {
-            setError('Password must be at least 6 characters long.');
-            return;
-        }
-        if (newPassword !== confirmPassword) {
-            setError('Passwords do not match.');
-            return;
-        }
-        onPasswordChange(newPassword);
-    };
-
-    return (
-        <div className="flex justify-center items-center min-h-screen p-4 bg-slate-100">
-            <div className="w-full max-w-md p-8 space-y-6 bg-white rounded-xl shadow-lg">
-                <div className="text-center">
-                    <h2 className="text-2xl font-bold text-slate-800">Update Your Password</h2>
-                    <p className="mt-2 text-slate-500">For security, please create a new password.</p>
-                </div>
-                <form onSubmit={handleSubmit} className="space-y-4">
-                    <input type="password" value={newPassword} onChange={e => setNewPassword(e.target.value)} className="w-full form-input" required placeholder="New Password" />
-                    <input type="password" value={confirmPassword} onChange={e => setConfirmPassword(e.target.value)} className="w-full form-input" required placeholder="Confirm New Password"/>
-                    {error && <p className="text-sm text-red-600">{error}</p>}
-                    <button type="submit" className="w-full flex justify-center py-2 px-4 rounded-md shadow-sm text-sm font-medium text-white bg-primary hover:bg-primary-dark">Set New Password</button>
-                </form>
-            </div>
         </div>
     );
 };
@@ -1111,7 +1072,7 @@ const CheckoutPOS = ({ users, inventory, executePurchase, showNotification }) =>
                                         <button onClick={() => handleUpdateQuantity(item.id, item.quantity - 1)} className="p-1 rounded-full bg-slate-200 hover:bg-slate-300"><MinusCircle size={16} /></button>
                                         <span>{item.quantity}</span>
                                         <button onClick={() => handleUpdateQuantity(item.id, item.quantity + 1)} className="p-1 rounded-full bg-slate-200 hover:bg-slate-300"><PlusCircle size={16} /></button>
-                                        <button onClick={() => handleUpdateQuantity(item.id, 0)} className="p-1 text-red-500 hover:bg-red-100 rounded-full"><Trash size={16} /></button>
+                                        <button onClick={() => onUpdateQuantity(item.id, 0)} className="p-1 text-red-500 hover:bg-red-100 rounded-full"><Trash size={16} /></button>
                                     </div>
                                 </div>
                             ))
