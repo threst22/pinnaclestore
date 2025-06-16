@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useRef } from 'react';
-import { X, ShoppingCart, User, LogOut, PlusCircle, Edit, Trash2, Upload, DollarSign, Download, Users, Package, MinusCircle, Trash, CheckCircle, XCircle, Bell, KeyRound, Settings, Award, TrendingUp } from 'lucide-react';
+import { X, ShoppingCart, User, LogOut, PlusCircle, Edit, Trash2, Upload, DollarSign, Download, Users, Package, MinusCircle, Trash, CheckCircle, XCircle, Bell, KeyRound, Settings, Award, TrendingUp, ArrowLeft } from 'lucide-react';
 
 // Note: The 'xlsx' library is loaded via a script tag at the end of this file.
 
@@ -38,13 +38,14 @@ const themes = {
 // --- MAIN APP COMPONENT ---
 export default function App() {
   const [currentUser, setCurrentUser] = useState(null);
-  const [view, setView] = useState('login'); // login, store, admin, forceChangePassword
+  const [view, setView] = useState('login'); // login, store, admin, forceChangePasswordPage, cart
   const [users, setUsers] = useState(initialUsers);
   const [inventory, setInventory] = useState(initialInventory);
   const [pendingOrders, setPendingOrders] = useState([]);
   const [purchaseHistory, setPurchaseHistory] = useState([]);
   const [notification, setNotification] = useState({ show: false, message: '', type: 'success' });
-  
+  const [cart, setCart] = useState([]);
+
   const [appSettings, setAppSettings] = useState({
       logo: 'https://img.icons8.com/plasticine/100/like-us.png',
       theme: 'shopee',
@@ -92,7 +93,7 @@ export default function App() {
       setCurrentUser(userWithUsername);
       
       if (user.requiresPasswordChange) {
-        setView('forceChangePassword');
+        setView('forceChangePasswordPage');
         showNotification('Please update your password before proceeding.', 'info', 5000);
       } else {
         setView(user.role === 'admin' ? 'admin' : 'store');
@@ -124,12 +125,13 @@ export default function App() {
 
   const handleLogout = () => {
     setCurrentUser(null);
+    setCart([]); // Clear cart on logout
     setView('login');
   };
   
-  const executePurchase = (employeeUsername, cart, isApproval = false) => {
+  const executePurchase = (employeeUsername, purchaseCart, isApproval = false) => {
       const employee = users[employeeUsername];
-      const totalCost = cart.reduce((sum, item) => sum + (item.points * item.quantity), 0);
+      const totalCost = purchaseCart.reduce((sum, item) => sum + (item.points * item.quantity), 0);
       
       if (employee.points >= totalCost) {
         const updatedPoints = employee.points - totalCost;
@@ -138,7 +140,7 @@ export default function App() {
         updatedUsers[employeeUsername] = { ...employee, points: updatedPoints };
 
         if (isApproval) {
-            const purchasedItems = cart.map(item => `${item.name} (x${item.quantity})`).join(', ');
+            const purchasedItems = purchaseCart.map(item => `${item.name} (x${item.quantity})`).join(', ');
             addNotification(employeeUsername, `Your purchase request for ${purchasedItems} has been approved.`, 'success');
         }
 
@@ -146,7 +148,7 @@ export default function App() {
 
         setInventory(prevInventory => {
             const newInventory = [...prevInventory];
-            cart.forEach(cartItem => {
+            purchaseCart.forEach(cartItem => {
                 const itemIndex = newInventory.findIndex(invItem => invItem.id === cartItem.id);
                 if (itemIndex !== -1) {
                     newInventory[itemIndex].stock -= cartItem.quantity;
@@ -159,13 +161,13 @@ export default function App() {
             id: Date.now(), 
             employeeUsername, 
             employeeName: employee.name, 
-            cart, 
+            cart: purchaseCart, 
             totalCost, 
             timestamp: new Date().toISOString() 
         };
         setPurchaseHistory(prev => [newPurchaseRecord, ...prev].slice(0, 50));
         
-        const purchasedItems = cart.map(item => `${item.name} (x${item.quantity})`).join(', ');
+        const purchasedItems = purchaseCart.map(item => `${item.name} (x${item.quantity})`).join(', ');
         const notificationTarget = currentUser?.role === 'admin' ? `Admin Checkout for ${employee.name}` : `Employee: ${employee.name} (${employeeUsername})`;
         console.log(`%c--- PURCHASE NOTIFICATION ---
           To: harry.timosa@pinintel.com
@@ -182,32 +184,57 @@ export default function App() {
       return { success: false };
   };
 
-  const handlePurchaseRequest = (cart) => {
+  const handlePurchaseRequest = (purchaseCart) => {
     const newOrder = {
         orderId: Date.now(),
         employeeUsername: currentUser.username,
-        cart: cart,
+        cart: purchaseCart,
         status: 'pending'
     };
     setPendingOrders(prev => [...prev, newOrder]);
     showNotification(`Purchase request sent for admin approval.`, 'success');
+    setCart([]);
+    setView('store');
     console.log(`%c--- NEW PURCHASE REQUEST ---
       To: harry.timosa@pinintel.com
       From: Pinnacle Rewards System
       Subject: New Purchase Request
       
       Employee: ${currentUser.name} (${currentUser.username})
-      Items: ${cart.map(item => `${item.name} (x${item.quantity})`).join(', ')}
+      Items: ${purchaseCart.map(item => `${item.name} (x${item.quantity})`).join(', ')}
       --- END NOTIFICATION ---`, "color: #f59e0b; font-weight: bold;");
     return true;
+  };
+
+  const handleUpdateCartQuantity = (itemId, newQuantity) => {
+    const item = inventory.find(i => i.id === parseInt(itemId));
+    if (newQuantity <= 0) {
+        setCart(cart.filter(cartItem => cartItem.id !== itemId));
+    } else if (item.stock >= newQuantity) {
+        setCart(cart.map(cartItem => cartItem.id === itemId ? { ...cartItem, quantity: newQuantity } : cartItem));
+    } else {
+        showNotification(`Only ${item.stock} of ${item.name} available.`, 'warning');
+        setCart(cart.map(cartItem => cartItem.id === itemId ? { ...cartItem, quantity: item.stock } : cartItem));
+    }
   };
 
   const renderContent = () => {
     switch (view) {
       case 'login':
         return <LoginPage onLogin={handleLogin} logo={appSettings.logo} />;
-      case 'forceChangePassword':
-        return <ChangePasswordModal user={currentUser} onPasswordChange={handleChangePassword} />;
+      case 'forceChangePasswordPage':
+        return <ForceChangePasswordPage onPasswordChange={handleChangePassword} />;
+      case 'cart':
+        return <CartPage 
+            cart={cart}
+            onUpdateQuantity={handleUpdateCartQuantity}
+            onConfirmPurchase={() => handlePurchaseRequest(cart)}
+            userPoints={currentUser.points}
+            setView={setView}
+            appSettings={appSettings}
+            onLogout={handleLogout}
+            user={currentUser}
+            />;
       case 'store':
         return <StorePage 
             user={currentUser}
@@ -215,11 +242,13 @@ export default function App() {
             users={users}
             setUsers={setUsers}
             inventory={inventory} 
-            onPurchaseRequest={handlePurchaseRequest} 
             onLogout={handleLogout} 
             showNotification={showNotification} 
             appSettings={appSettings}
             purchaseHistory={purchaseHistory}
+            cart={cart}
+            setCart={setCart}
+            setView={setView}
         />;
       case 'admin':
         return <AdminDashboard 
@@ -365,11 +394,8 @@ const Header = ({ user, onLogout, isAdmin, cartItemCount, onCartClick, appSettin
   </header>
 );
 
-const StorePage = ({ user, setUser, users, setUsers, inventory, onPurchaseRequest, onLogout, showNotification, appSettings, purchaseHistory }) => {
-  const [cart, setCart] = useState([]);
-  const [isCartOpen, setIsCartOpen] = useState(false);
+const StorePage = ({ user, setUser, users, setUsers, inventory, onLogout, showNotification, appSettings, purchaseHistory, cart, setCart, setView }) => {
   const [storeView, setStoreView] = useState('store'); // store, notifications
-  const [previewImage, setPreviewImage] = useState(null);
   
   const unreadCount = user.notifications.filter(n => !n.read).length;
   const userPurchaseHistory = purchaseHistory.filter(p => p.employeeUsername === user.username).slice(0, 3);
@@ -389,25 +415,6 @@ const StorePage = ({ user, setUser, users, setUsers, inventory, onPurchaseReques
         showNotification(`Not enough stock for ${item.name}.`, 'warning');
     }
   };
-
-  const handleUpdateCartQuantity = (itemId, newQuantity) => {
-    const item = inventory.find(i => i.id === parseInt(itemId));
-    if (newQuantity <= 0) {
-        setCart(cart.filter(cartItem => cartItem.id !== itemId));
-    } else if (item.stock >= newQuantity) {
-        setCart(cart.map(cartItem => cartItem.id === itemId ? { ...cartItem, quantity: newQuantity } : cartItem));
-    } else {
-        showNotification(`Only ${item.stock} of ${item.name} available.`, 'warning');
-        setCart(cart.map(cartItem => cartItem.id === itemId ? { ...cartItem, quantity: item.stock } : cartItem));
-    }
-  };
-
-  const handleConfirmRequest = () => {
-    if (onPurchaseRequest(cart)) {
-        setCart([]);
-        setIsCartOpen(false);
-    }
-  };
   
   const handleViewNotifications = () => {
     setStoreView('notifications');
@@ -423,7 +430,7 @@ const StorePage = ({ user, setUser, users, setUsers, inventory, onPurchaseReques
   
   return (
     <div className="bg-slate-50 min-h-screen">
-      <Header user={user} onLogout={onLogout} cartItemCount={cartItemCount} onCartClick={() => setIsCartOpen(true)} appSettings={appSettings}/>
+      <Header user={user} onLogout={onLogout} cartItemCount={cartItemCount} onCartClick={() => setView('cart')} appSettings={appSettings}/>
       <main className="container mx-auto p-4 sm:p-6 lg:p-8">
         <div className="flex items-center justify-between mb-6 border-b pb-4">
            <h2 className="text-2xl sm:text-3xl font-bold text-slate-800">
@@ -442,24 +449,24 @@ const StorePage = ({ user, setUser, users, setUsers, inventory, onPurchaseReques
 
         {storeView === 'store' ? (
           <>
-            <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 2xl:grid-cols-6 gap-3 sm:gap-4">
+            <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
               {inventory.filter(item => item.stock > 0).map(item => (
-                <div key={item.id} className="bg-white rounded-md shadow-sm overflow-hidden flex flex-col transition-shadow hover:shadow-lg border border-slate-100">
-                   <div className="aspect-square w-full overflow-hidden cursor-pointer" onClick={() => setPreviewImage(item.image)}>
-                     <img src={item.image} alt={item.name} className="w-full h-full object-cover" onError={(e) => { e.target.onerror = null; e.target.src='https://placehold.co/400x400/e2e8f0/4a5568?text=Image+Error'; }}/>
+                <div key={item.id} className="bg-white rounded-md shadow-sm overflow-hidden flex transition-shadow hover:shadow-lg border border-slate-100">
+                   <div className="w-1/3 md:w-1/4 flex-shrink-0">
+                        <img src={item.image} alt={item.name} className="w-full h-full object-cover" onError={(e) => { e.target.onerror = null; e.target.src='https://placehold.co/400x400/e2e8f0/4a5568?text=Image+Error'; }}/>
                    </div>
-                  <div className="p-3 flex flex-col flex-grow">
-                    <h3 className="text-sm font-medium text-slate-800 leading-snug truncate">{item.name}</h3>
-                    <div className="mt-2 mb-3 flex-grow">
+                  <div className="w-2/3 md:w-3/4 p-4 flex flex-col">
+                    <h3 className="text-base font-semibold text-slate-800 leading-snug">{item.name}</h3>
+                    <div className="mt-2 mb-3">
                         <div className="flex items-baseline gap-2">
-                            <p className="text-lg font-bold text-primary">{item.points.toLocaleString()}</p>
+                            <p className="text-xl font-bold text-primary">{item.points.toLocaleString()}</p>
                             {item.points !== item.basePoints && (
                                 <p className="text-sm text-slate-500 line-through">{item.basePoints.toLocaleString()}</p>
                             )}
                         </div>
                     </div>
-                     <p className="text-xs text-slate-500 mb-2">Stock: {item.stock}</p>
-                    <button onClick={() => handleAddToCart(item)} className="w-full mt-auto flex items-center justify-center py-2 px-2 border border-primary text-primary hover:bg-primary-light transition-colors text-sm rounded-md">
+                     <p className="text-xs text-slate-500 mb-3">Stock: {item.stock}</p>
+                    <button onClick={() => handleAddToCart(item)} className="w-full mt-auto flex items-center justify-center py-2 px-2 border border-primary text-primary hover:bg-primary-light transition-colors text-sm rounded-md font-semibold">
                       Add to Cart
                     </button>
                   </div>
@@ -475,15 +482,6 @@ const StorePage = ({ user, setUser, users, setUsers, inventory, onPurchaseReques
             <NotificationList notifications={user.notifications} />
         )}
       </main>
-      <CartModal 
-        isOpen={isCartOpen}
-        onClose={() => setIsCartOpen(false)}
-        cart={cart}
-        onUpdateQuantity={handleUpdateCartQuantity}
-        onConfirmPurchase={handleConfirmRequest}
-        userPoints={user.points}
-      />
-      {previewImage && <ImagePreviewModal imageUrl={previewImage} onClose={() => setPreviewImage(null)} />}
     </div>
   );
 };
@@ -512,74 +510,66 @@ const NotificationList = ({ notifications }) => {
     );
 };
 
-const CartModal = ({ isOpen, onClose, cart, onUpdateQuantity, onConfirmPurchase, userPoints }) => {
-    if (!isOpen) return null;
-
+const CartPage = ({ user, onLogout, cart, onUpdateQuantity, onConfirmPurchase, userPoints, setView, appSettings }) => {
     const totalCost = cart.reduce((sum, item) => sum + (item.points * item.quantity), 0);
     const canAfford = userPoints >= totalCost;
 
     return (
-        <div className="fixed inset-0 bg-black bg-opacity-60 z-50 flex justify-center items-center p-4 animate-fade-in">
-            <div className="bg-white p-6 rounded-lg shadow-2xl w-full max-w-lg">
-                <div className="flex justify-between items-center mb-4 border-b pb-4">
-                   <h2 className="text-2xl font-bold text-slate-800 flex items-center gap-2"><ShoppingCart /> Your Cart</h2>
-                   <button onClick={onClose} className="text-slate-500 hover:text-slate-800 p-1 rounded-full hover:bg-slate-100"><X className="h-6 w-6" /></button>
-                </div>
+        <div className="bg-slate-50 min-h-screen">
+            <Header user={user} onLogout={onLogout} cartItemCount={cart.length} onCartClick={() => setView('cart')} appSettings={appSettings}/>
+            <main className="container mx-auto p-4 sm:p-6 lg:p-8">
+                 <button onClick={() => setView('store')} className="flex items-center gap-2 text-slate-600 hover:text-primary mb-6 font-semibold">
+                    <ArrowLeft size={18} />
+                    Back to Store
+                 </button>
+                <div className="bg-white p-6 rounded-lg shadow-lg w-full max-w-4xl mx-auto">
+                    <div className="flex justify-between items-center mb-4 border-b pb-4">
+                       <h2 className="text-2xl font-bold text-slate-800 flex items-center gap-2"><ShoppingCart /> Your Cart</h2>
+                    </div>
 
-                <div className="space-y-3 mb-4 max-h-72 overflow-y-auto pr-2">
-                    {cart.length === 0 ? <p className="text-slate-500 text-center text-sm py-8">Your cart is empty.</p> : 
-                      cart.map(item => (
-                        <div key={item.id} className="flex items-center justify-between text-sm p-2 bg-slate-50 rounded-lg">
-                            <div className="flex items-center gap-3">
-                                <img src={item.image} alt={item.name} className="h-12 w-12 rounded-md object-cover"/>
-                                <div>
-                                    <p className="font-semibold">{item.name}</p>
-                                    <p className="text-slate-500">{item.points} pts each</p>
+                    <div className="space-y-3 mb-4 max-h-[50vh] overflow-y-auto pr-2">
+                        {cart.length === 0 ? <p className="text-slate-500 text-center text-sm py-8">Your cart is empty.</p> : 
+                          cart.map(item => (
+                            <div key={item.id} className="flex items-center justify-between text-sm p-2 bg-slate-50 rounded-lg">
+                                <div className="flex items-center gap-3">
+                                    <img src={item.image} alt={item.name} className="h-12 w-12 rounded-md object-cover"/>
+                                    <div>
+                                        <p className="font-semibold">{item.name}</p>
+                                        <p className="text-slate-500">{item.points} pts each</p>
+                                    </div>
+                                </div>
+                                <div className="flex items-center gap-2">
+                                    <button onClick={() => onUpdateQuantity(item.id, item.quantity - 1)} className="p-1 rounded-full bg-slate-200 hover:bg-slate-300"><MinusCircle size={18}/></button>
+                                    <span className="w-6 text-center font-semibold">{item.quantity}</span>
+                                    <button onClick={() => onUpdateQuantity(item.id, item.quantity + 1)} className="p-1 rounded-full bg-slate-200 hover:bg-slate-300"><PlusCircle size={18}/></button>
+                                    <button onClick={() => onUpdateQuantity(item.id, 0)} className="p-1 text-red-500 hover:bg-red-100 rounded-full"><Trash size={18}/></button>
                                 </div>
                             </div>
-                            <div className="flex items-center gap-2">
-                                <button onClick={() => onUpdateQuantity(item.id, item.quantity - 1)} className="p-1 rounded-full bg-slate-200 hover:bg-slate-300"><MinusCircle size={18}/></button>
-                                <span className="w-6 text-center font-semibold">{item.quantity}</span>
-                                <button onClick={() => onUpdateQuantity(item.id, item.quantity + 1)} className="p-1 rounded-full bg-slate-200 hover:bg-slate-300"><PlusCircle size={18}/></button>
-                                <button onClick={() => onUpdateQuantity(item.id, 0)} className="p-1 text-red-500 hover:bg-red-100 rounded-full"><Trash size={18}/></button>
+                          ))
+                        }
+                    </div>
+                    
+                    {cart.length > 0 && (
+                        <div className="border-t pt-4">
+                            <div className="space-y-2 text-md">
+                                <div className="flex justify-between"><span>Your Points:</span> <span>{userPoints}</span></div>
+                                <div className="flex justify-between font-semibold"><span>Total Cost:</span> <span>- {totalCost}</span></div>
+                                <div className={`flex justify-between font-bold text-lg border-t pt-2 mt-2 ${canAfford ? 'text-primary' : 'text-red-600'}`}><span>Remaining (if approved):</span> <span>{userPoints - totalCost}</span></div>
+                            </div>
+                            <div className="flex justify-end pt-6">
+                                <button onClick={onConfirmPurchase} disabled={!canAfford} className="px-6 py-2 rounded-lg bg-primary text-white hover:bg-primary-dark disabled:bg-slate-400 disabled:cursor-not-allowed w-full sm:w-auto">
+                                    Request Purchase
+                                </button>
                             </div>
                         </div>
-                      ))
-                    }
+                    )}
                 </div>
-                
-                {cart.length > 0 && (
-                    <div className="border-t pt-4">
-                        <div className="space-y-2 text-md">
-                            <div className="flex justify-between"><span>Your Points:</span> <span>{userPoints}</span></div>
-                            <div className="flex justify-between font-semibold"><span>Total Cost:</span> <span>- {totalCost}</span></div>
-                            <div className={`flex justify-between font-bold text-lg border-t pt-2 mt-2 ${canAfford ? 'text-primary' : 'text-red-600'}`}><span>Remaining (if approved):</span> <span>{userPoints - totalCost}</span></div>
-                        </div>
-                        <div className="flex justify-end space-x-3 pt-6">
-                            <button type="button" onClick={onClose} className="px-4 py-2 rounded-lg bg-slate-200 hover:bg-slate-300">Continue Shopping</button>
-                            <button onClick={onConfirmPurchase} disabled={!canAfford} className="px-6 py-2 rounded-lg bg-primary text-white hover:bg-primary-dark disabled:bg-slate-400 disabled:cursor-not-allowed">
-                                Request Purchase
-                            </button>
-                        </div>
-                    </div>
-                )}
-            </div>
+            </main>
         </div>
     );
 };
 
-const ImagePreviewModal = ({ imageUrl, onClose }) => {
-    return (
-        <div className="fixed inset-0 bg-black bg-opacity-75 z-[60] flex justify-center items-center p-4 animate-fade-in" onClick={onClose}>
-            <div className="relative max-w-3xl max-h-[80vh]">
-                <img src={imageUrl} alt="Enlarged preview" className="object-contain max-w-full max-h-full rounded-lg" />
-                 <button onClick={onClose} className="absolute -top-4 -right-4 bg-white text-slate-800 rounded-full p-1"><X size={20}/></button>
-            </div>
-        </div>
-    );
-};
-
-const ChangePasswordModal = ({ user, onPasswordChange }) => {
+const ForceChangePasswordPage = ({ onPasswordChange }) => {
     const [newPassword, setNewPassword] = useState('');
     const [confirmPassword, setConfirmPassword] = useState('');
     const [error, setError] = useState('');
@@ -598,7 +588,7 @@ const ChangePasswordModal = ({ user, onPasswordChange }) => {
     };
 
     return (
-        <div className="fixed inset-0 bg-slate-100 z-50 flex justify-center items-center p-4">
+        <div className="flex justify-center items-center min-h-screen p-4 bg-slate-100">
             <div className="w-full max-w-md p-8 space-y-6 bg-white rounded-xl shadow-lg">
                 <div className="text-center">
                     <h2 className="text-2xl font-bold text-slate-800">Update Your Password</h2>
@@ -626,6 +616,7 @@ const ChangePasswordModal = ({ user, onPasswordChange }) => {
 const AdminDashboard = ({ user, onLogout, inventory, setInventory, users, setUsers, showNotification, executePurchase, pendingOrders, setPendingOrders, addNotification, appSettings, setAppSettings, purchaseHistory }) => {
   const [adminView, setAdminView] = useState('overview');
   const [inflationInput, setInflationInput] = useState(appSettings.inflation);
+  const [editingUser, setEditingUser] = useState(null);
 
   useEffect(() => {
     setInflationInput(appSettings.inflation);
@@ -649,13 +640,30 @@ const AdminDashboard = ({ user, onLogout, inventory, setInventory, users, setUse
 
       showNotification(`Inflation set to ${newInflation}%. Item prices updated.`, 'success');
   };
+  
+  const handleEditUserClick = (username) => {
+    setEditingUser(users[username]);
+    setAdminView('editEmployee');
+  };
+
+  const handleSaveUser = (username, userData) => {
+    setUsers(prev => ({
+        ...prev,
+        [username]: { ...prev[username], ...userData }
+    }));
+    showNotification(`${userData.name}'s details updated successfully.`);
+    setEditingUser(null);
+    setAdminView('employees');
+  };
 
   const renderAdminContent = () => {
     switch(adminView) {
       case 'inventory':
         return <InventoryManagement inventory={inventory} setInventory={setInventory} showNotification={showNotification} appSettings={appSettings} />;
       case 'employees':
-        return <EmployeeManagement users={users} setUsers={setUsers} showNotification={showNotification} />;
+        return <EmployeeManagement users={users} setUsers={setUsers} showNotification={showNotification} onEditUser={handleEditUserClick} />;
+      case 'editEmployee':
+        return <EditEmployeePage user={editingUser} onSave={handleSaveUser} setAdminView={setAdminView} />;
       case 'checkout':
         return <CheckoutPOS users={users} inventory={inventory} executePurchase={executePurchase} showNotification={showNotification} />;
       case 'settings':
@@ -1284,19 +1292,9 @@ const InventoryManagement = ({ inventory, setInventory, showNotification, appSet
     );
 };
 
-const EmployeeManagement = ({ users, setUsers, showNotification }) => {
+const EmployeeManagement = ({ users, setUsers, showNotification, onEditUser }) => {
     const addPointsFileInputRef = useRef(null);
     const updateListFileInputRef = useRef(null);
-    const [editingUser, setEditingUser] = useState(null);
-    
-    const handleSaveUser = (username, userData) => {
-        setUsers(prev => ({
-            ...prev,
-            [username]: { ...prev[username], ...userData }
-        }));
-        showNotification(`${userData.name}'s details updated successfully.`);
-        setEditingUser(null);
-    };
     
     const handleResetPassword = (username) => {
         if(window.confirm(`Are you sure you want to reset the password for ${username}?`)) {
@@ -1444,7 +1442,7 @@ const EmployeeManagement = ({ users, setUsers, showNotification }) => {
                                 <td className="px-6 py-4 text-right">
                                     <div className="flex justify-end space-x-2">
                                         <button onClick={() => handleResetPassword(username)} title="Reset Password" className="p-2 text-amber-600 hover:bg-amber-100 rounded-full"><KeyRound className="h-5 w-5"/></button>
-                                        <button onClick={() => setEditingUser({username, ...user})} className="p-2 text-blue-600 hover:bg-blue-100 rounded-full"><Edit className="h-5 w-5"/></button>
+                                        <button onClick={() => onEditUser(username)} className="p-2 text-blue-600 hover:bg-blue-100 rounded-full"><Edit className="h-5 w-5"/></button>
                                         <button onClick={() => handleRemoveEmployee(username)} title={`Remove ${user.name}`} className="p-2 text-red-600 hover:bg-red-100 rounded-full"><Trash2 className="h-5 w-5"/></button>
                                     </div>
                                 </td>
@@ -1453,12 +1451,11 @@ const EmployeeManagement = ({ users, setUsers, showNotification }) => {
                     </tbody>
                 </table>
             </div>
-            {editingUser && <EmployeeModal user={editingUser} onClose={() => setEditingUser(null)} onSave={handleSaveUser} />}
         </div>
     );
 };
 
-const EmployeeModal = ({ user, onClose, onSave }) => {
+const EditEmployeePage = ({ user, onSave, setAdminView }) => {
     const [name, setName] = useState(user.name);
     const [points, setPoints] = useState(user.points);
     const [password, setPassword] = useState('');
@@ -1474,31 +1471,29 @@ const EmployeeModal = ({ user, onClose, onSave }) => {
     };
 
     return (
-        <div className="fixed inset-0 bg-black bg-opacity-60 z-50 flex justify-center items-center p-4">
-            <div className="bg-white p-8 rounded-lg shadow-2xl w-full max-w-md">
-                <div className="flex justify-between items-center mb-6">
-                   <h2 className="text-2xl font-bold text-slate-800">Edit Employee: {user.username}</h2>
-                   <button onClick={onClose} className="text-slate-500 hover:text-slate-800"><X className="h-6 w-6" /></button>
-                </div>
-                <form onSubmit={handleSubmit} className="space-y-4">
-                    <div>
-                        <label className="block text-sm font-medium text-slate-700">Full Name</label>
-                        <input type="text" value={name} onChange={e => setName(e.target.value)} className="mt-1 w-full form-input" required />
-                    </div>
-                     <div>
-                        <label className="block text-sm font-medium text-slate-700">New Password (optional)</label>
-                        <input type="text" value={password} onChange={e => setPassword(e.target.value)} placeholder="Leave blank to keep current password" className="mt-1 w-full form-input" />
-                    </div>
-                    <div>
-                        <label className="block text-sm font-medium text-slate-700">Pinn Points</label>
-                        <input type="number" value={points} onChange={e => setPoints(e.target.value)} className="mt-1 w-full form-input" required />
-                    </div>
-                    <div className="flex justify-end space-x-3 pt-4">
-                        <button type="button" onClick={onClose} className="px-4 py-2 rounded-lg bg-slate-200 hover:bg-slate-300">Cancel</button>
-                        <button type="submit" className="px-4 py-2 rounded-lg bg-primary text-white hover:bg-primary-dark">Save Changes</button>
-                    </div>
-                </form>
+        <div className="bg-white p-8 rounded-lg shadow-2xl w-full max-w-2xl mx-auto">
+            <div className="flex justify-between items-center mb-6">
+               <h2 className="text-2xl font-bold text-slate-800">Edit Employee: {user.username}</h2>
+               <button onClick={() => setAdminView('employees')} className="text-slate-500 hover:text-slate-800"><X className="h-6 w-6" /></button>
             </div>
+            <form onSubmit={handleSubmit} className="space-y-4">
+                <div>
+                    <label className="block text-sm font-medium text-slate-700">Full Name</label>
+                    <input type="text" value={name} onChange={e => setName(e.target.value)} className="mt-1 w-full form-input" required />
+                </div>
+                 <div>
+                    <label className="block text-sm font-medium text-slate-700">New Password (optional)</label>
+                    <input type="text" value={password} onChange={e => setPassword(e.target.value)} placeholder="Leave blank to keep current password" className="mt-1 w-full form-input" />
+                </div>
+                <div>
+                    <label className="block text-sm font-medium text-slate-700">Pinn Points</label>
+                    <input type="number" value={points} onChange={e => setPoints(e.target.value)} className="mt-1 w-full form-input" required />
+                </div>
+                <div className="flex justify-end space-x-3 pt-4">
+                    <button type="button" onClick={() => setAdminView('employees')} className="px-4 py-2 rounded-lg bg-slate-200 hover:bg-slate-300">Cancel</button>
+                    <button type="submit" className="px-4 py-2 rounded-lg bg-primary text-white hover:bg-primary-dark">Save Changes</button>
+                </div>
+            </form>
         </div>
     );
 };
