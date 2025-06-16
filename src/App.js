@@ -4,7 +4,6 @@ import { initializeApp } from 'firebase/app';
 import { 
     getAuth, 
     onAuthStateChanged, 
-    createUserWithEmailAndPassword, 
     signInWithEmailAndPassword, 
     signOut, 
     updatePassword,
@@ -14,7 +13,6 @@ import {
     getFirestore, 
     doc, 
     getDoc, 
-    setDoc, 
     updateDoc, 
     collection, 
     query, 
@@ -46,17 +44,6 @@ const db = getFirestore(app);
 
 
 // Note: The 'xlsx' library is loaded via a script tag at the end of this file.
-
-// --- MOCK DATA (for initial setup) ---
-const initialUsers = {
-  'admin@pinnacle.com': { role: 'admin', name: 'Admin User', notifications: [], requiresPasswordChange: false },
-  'employee1@pinnacle.com': { role: 'employee', name: 'Alex Reyes', points: 1500, notifications: [], requiresPasswordChange: false },
-};
-
-const initialInventory = [
-  { id: 'item1', name: 'Company Tumbler', basePoints: 500, points: 500, stock: 10, image: 'https://placehold.co/400x400/e2e8f0/4a5568?text=Tumbler' },
-  { id: 'item2', name: 'Branded Hoodie', basePoints: 1200, points: 1200, stock: 5, image: 'https://placehold.co/400x400/e2e8f0/4a5568?text=Hoodie' },
-];
 
 const themes = {
   shopee: { name: 'Shopee Orange', primary: '#ee4d2d', light: '#fff4f2', dark: '#d73112' },
@@ -314,7 +301,6 @@ export default function App() {
       case 'store':
         return <StorePage 
             user={currentUserData}
-            users={users}
             inventory={inventory} 
             onLogout={handleLogout} 
             showNotification={showNotification} 
@@ -323,19 +309,17 @@ export default function App() {
             cart={cart}
             setCart={setCart}
             setView={setView}
+            users={users}
         />;
       case 'admin':
         return <AdminDashboard 
                     user={currentUserData} 
                     onLogout={handleLogout} 
                     inventory={inventory}
-                    setInventory={setInventory}
                     users={users}
-                    setUsers={setUsers}
                     showNotification={showNotification}
                     executePurchase={executePurchase}
                     pendingOrders={pendingOrders}
-                    setPendingOrders={setPendingOrders}
                     addNotification={addNotification}
                     appSettings={appSettings}
                     setAppSettings={setAppSettings}
@@ -691,7 +675,7 @@ const ForceChangePasswordPage = ({ onPasswordChange }) => {
     );
 };
 
-const AdminDashboard = ({ user, onLogout, inventory, setInventory, users, setUsers, showNotification, executePurchase, pendingOrders, setPendingOrders, addNotification, appSettings, setAppSettings, purchaseHistory }) => {
+const AdminDashboard = ({ user, onLogout, inventory, users, showNotification, executePurchase, pendingOrders, addNotification, appSettings, setAppSettings, purchaseHistory }) => {
   const [adminView, setAdminView] = useState('overview');
   const [inflationInput, setInflationInput] = useState(appSettings.inflation);
   const [editingUser, setEditingUser] = useState(null);
@@ -748,7 +732,7 @@ const AdminDashboard = ({ user, onLogout, inventory, setInventory, users, setUse
       case 'settings':
         return <AppSettingsPage appSettings={appSettings} setAppSettings={setAppSettings} showNotification={showNotification}/>;
       case 'approvals':
-        return <ApprovalQueue pendingOrders={pendingOrders} setPendingOrders={setPendingOrders} users={users} executePurchase={executePurchase} showNotification={showNotification} addNotification={addNotification}/>;
+        return <ApprovalQueue pendingOrders={pendingOrders} users={users} executePurchase={executePurchase} showNotification={showNotification} addNotification={addNotification}/>;
       case 'overview':
       default:
         return (
@@ -1374,7 +1358,6 @@ const InventoryManagement = ({ inventory, showNotification, appSettings }) => {
 
 const EmployeeManagement = ({ users, showNotification, onEditUser }) => {
     const addPointsFileInputRef = useRef(null);
-    const updateListFileInputRef = useRef(null);
     
     const handleResetPassword = async (email) => {
         if(window.confirm(`Are you sure you want to send a password reset email to ${email}?`)) {
@@ -1424,12 +1407,11 @@ const EmployeeManagement = ({ users, showNotification, onEditUser }) => {
                         }
                     }
                 } else { // 'updateList' mode
-                    for (const row of json) {
+                    json.forEach(() => {
                         // This part is complex because it involves creating Auth users.
                         // For simplicity, this example will only update existing Firestore users.
                         showNotification("Bulk creation from Excel is not supported in this version.", "info");
-                        break;
-                    }
+                    });
                 }
                 await batch.commit();
                 showNotification("Batch update successful.", 'success');
