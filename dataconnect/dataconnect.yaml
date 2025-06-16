@@ -1,0 +1,12 @@
+specVersion: "v1"
+serviceId: "pinnacle-rewards-store"
+location: "us-central1"
+schema:
+  source: "./schema"
+  datasource:
+    postgresql:
+      database: "fdcdb"
+      cloudSql:
+        instanceId: "pinnacle-rewards-store-fdc"
+      # schemaValidation: "COMPATIBLE"
+connectorDirs: ["./connector"]
