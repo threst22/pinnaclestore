@@ -24,9 +24,7 @@ import {
     getDocs
 } from 'firebase/firestore';
 
-
 // --- Firebase Configuration ---
-// This should be replaced with your actual Firebase config
 const firebaseConfig = {
   apiKey: "AIzaSyCmLFfYWWdwHfFT5Wzl_QmirNe9iluO7Pw",
   authDomain: "pinnaclestore-e5cb7.firebaseapp.com",
@@ -37,14 +35,17 @@ const firebaseConfig = {
   measurementId: "G-L99FF0D96V"
 };
 
+let app, auth, db;
+let firebaseInitializationError = null;
 
-// --- Firebase Initialization ---
-const app = initializeApp(firebaseConfig);
-const auth = getAuth(app);
-const db = getFirestore(app);
-
-
-// Note: The 'xlsx' library is loaded via a script tag at the end of this file.
+try {
+  app = initializeApp(firebaseConfig);
+  auth = getAuth(app);
+  db = getFirestore(app);
+} catch (error) {
+  console.error("Firebase Initialization Error:", error);
+  firebaseInitializationError = error;
+}
 
 const themes = {
   shopee: { name: 'Shopee Orange', primary: '#ee4d2d', light: '#fff4f2', dark: '#d73112' },
@@ -59,7 +60,7 @@ const themes = {
 export default function App() {
   const [currentUser, setCurrentUser] = useState(null);
   const [currentUserData, setCurrentUserData] = useState(null);
-  const [view, setView] = useState('loading'); // loading, login, store, admin, forceChangePasswordPage, cart
+  const [view, setView] = useState('loading');
   const [users, setUsers] = useState({});
   const [inventory, setInventory] = useState([]);
   const [pendingOrders, setPendingOrders] = useState([]);
@@ -74,7 +75,10 @@ export default function App() {
   });
 
   useEffect(() => {
-    // Auth listener
+    if (firebaseInitializationError) {
+        setView('error');
+        return;
+    }
     const unsubscribe = onAuthStateChanged(auth, async (user) => {
       try {
         if (user) {
@@ -130,7 +134,7 @@ export default function App() {
         }
       } catch (error) {
           console.error("Error during auth state change:", error);
-          setView('login'); // Fallback to login screen on error
+          setView('login');
       }
     });
 
@@ -198,7 +202,7 @@ export default function App() {
   const handleLogout = async () => {
     try {
         await signOut(auth);
-        setCart([]); // Clear cart on logout
+        setCart([]);
     } catch(error) {
         showNotification(error.message, 'error');
     }
@@ -213,11 +217,9 @@ export default function App() {
       if (employee.points >= totalCost) {
         const batch = writeBatch(db);
 
-        // Deduct points from user
         const userRef = doc(db, 'users', employeeId);
         batch.update(userRef, { points: employee.points - totalCost });
 
-        // Update inventory stock
         for (const cartItem of purchaseCart) {
             const itemRef = doc(db, 'inventory', cartItem.id);
             const itemSnap = await getDoc(itemRef);
@@ -227,7 +229,6 @@ export default function App() {
             }
         }
         
-        // Add to purchase history
         const historyRef = collection(db, 'purchaseHistory');
         const newPurchaseRecord = { 
             employeeId, 
@@ -273,15 +274,26 @@ export default function App() {
     const item = inventory.find(i => i.id === itemId);
     if (newQuantity <= 0) {
         setCart(cart.filter(cartItem => cartItem.id !== itemId));
-    } else if (item.stock >= newQuantity) {
+    } else if (item && item.stock >= newQuantity) {
         setCart(cart.map(cartItem => cartItem.id === itemId ? { ...cartItem, quantity: newQuantity } : cartItem));
-    } else {
+    } else if(item) {
         showNotification(`Only ${item.stock} of ${item.name} available.`, 'warning');
         setCart(cart.map(cartItem => cartItem.id === itemId ? { ...cartItem, quantity: item.stock } : cartItem));
     }
   };
 
   const renderContent = () => {
+    if (view === 'error') {
+      return (
+        <div className="flex items-center justify-center min-h-screen text-red-500 font-semibold text-center p-4 bg-red-50">
+          <div>
+            <h1 className="text-2xl mb-2">Application Error</h1>
+            <p className="text-slate-700">Could not initialize Firebase. Please check your API keys and Firebase project settings.</p>
+            <p className="text-sm text-gray-500 mt-4">Error: {firebaseInitializationError?.message}</p>
+          </div>
+        </div>
+      );
+    }
     if (view === 'loading') {
         return <div className="flex items-center justify-center min-h-screen">Loading...</div>;
     }
@@ -1229,7 +1241,7 @@ const InventoryManagement = ({ inventory, showNotification, appSettings }) => {
                 const currentInflation = appSettings.inflation || 0;
                 const batch = writeBatch(db);
 
-                json.forEach((row, index) => {
+                json.forEach((row) => {
                     const basePoints = Number(row.basePoints);
                     const stock = Number(row.stock);
 
