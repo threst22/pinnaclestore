@@ -25,10 +25,14 @@ import {
 } from 'firebase/firestore';
 
 // --- Firebase Configuration & App ID ---
-// These will be provided by the environment.
-const firebaseConfig = typeof __firebase_config !== 'undefined' ? JSON.parse(__firebase_config) : {};
-const appId = typeof __app_id !== 'undefined' ? __app_id : 'pinnpoints-store-default';
-const initialAuthToken = typeof __initial_auth_token !== 'undefined' ? __initial_auth_token : null;
+// These will be provided by the environment. For Netlify, use Environment Variables.
+const firebaseConfig = window.__firebase_config
+  ? JSON.parse(window.__firebase_config)
+  : (process.env.REACT_APP_FIREBASE_CONFIG ? JSON.parse(process.env.REACT_APP_FIREBASE_CONFIG) : {});
+
+const appId = window.__app_id || process.env.REACT_APP_APP_ID || 'pinnpoints-store-default';
+
+const initialAuthToken = window.__initial_auth_token || process.env.REACT_APP_INITIAL_AUTH_TOKEN || null;
 
 // --- Firestore Collection Paths ---
 const collections = {
