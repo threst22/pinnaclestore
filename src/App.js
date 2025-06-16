@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useRef } from 'react';
-import { X, ShoppingCart, User, LogOut, PlusCircle, Edit, Trash2, Upload, DollarSign, Download, Users, Package, MinusCircle, Trash, CheckCircle, XCircle, Bell, KeyRound, Settings } from 'lucide-react';
+import { X, ShoppingCart, User, LogOut, PlusCircle, Edit, Trash2, Upload, DollarSign, Download, Users, Package, MinusCircle, Trash, CheckCircle, XCircle, Bell, KeyRound, Settings, Award, TrendingUp } from 'lucide-react';
 
 // Note: The 'xlsx' library is loaded via a script tag at the end of this file.
 
@@ -9,26 +9,30 @@ const initialUsers = {
   'employee1': { password: 'password123', role: 'employee', name: 'Alex Reyes', points: 1500, notifications: [], requiresPasswordChange: false },
   'employee2': { password: 'password', role: 'employee', name: 'Bea Santos', points: 800, notifications: [], requiresPasswordChange: true },
   'employee3': { password: 'password456', role: 'employee', name: 'Chris David', points: 2500, notifications: [], requiresPasswordChange: false },
+  'employee4': { password: 'password', role: 'employee', name: 'Dana Garcia', points: 3200, notifications: [], requiresPasswordChange: false },
+  'employee5': { password: 'password', role: 'employee', name: 'Evan Lim', points: 1800, notifications: [], requiresPasswordChange: false },
+  'employee6': { password: 'password', role: 'employee', name: 'Faye Cruz', points: 5000, notifications: [], requiresPasswordChange: false },
+  'employee7': { password: 'password', role: 'employee', name: 'George Tan', points: 950, notifications: [], requiresPasswordChange: false },
+  'employee8': { password: 'password', role: 'employee', name: 'Hannah Lee', points: 2100, notifications: [], requiresPasswordChange: false },
+  'employee9': { password: 'password', role: 'employee', name: 'Ian Mendoza', points: 4100, notifications: [], requiresPasswordChange: false },
+  'employee10': { password: 'password', role: 'employee', name: 'Jane Gomez', points: 1100, notifications: [], requiresPasswordChange: false },
+  'employee11': { password: 'password', role: 'employee', name: 'Kevin Sy', points: 750, notifications: [], requiresPasswordChange: false },
 };
 
 const initialInventory = [
-  { id: 1, name: 'Company Tumbler', points: 500, stock: 10, image: 'https://placehold.co/400x400/e2e8f0/4a5568?text=Tumbler' },
-  { id: 2, name: 'Branded Hoodie', points: 1200, stock: 5, image: 'https://placehold.co/400x400/e2e8f0/4a5568?text=Hoodie' },
-  { id: 3, name: 'Wireless Mouse', points: 800, stock: 15, image: 'https://placehold.co/400x400/e2e8f0/4a5568?text=Mouse' },
-  { id: 4, name: 'Pinnacle Notebook Set', points: 350, stock: 20, image: 'https://placehold.co/400x400/e2e8f0/4a5568?text=Notebook' },
+  { id: 1, name: 'Company Tumbler', basePoints: 500, points: 500, stock: 10, image: 'https://placehold.co/400x400/e2e8f0/4a5568?text=Tumbler' },
+  { id: 2, name: 'Branded Hoodie', basePoints: 1200, points: 1200, stock: 5, image: 'https://placehold.co/400x400/e2e8f0/4a5568?text=Hoodie' },
+  { id: 3, name: 'Wireless Mouse', basePoints: 800, points: 800, stock: 15, image: 'https://placehold.co/400x400/e2e8f0/4a5568?text=Mouse' },
+  { id: 4, name: 'Pinnacle Notebook Set', basePoints: 350, points: 350, stock: 20, image: 'https://placehold.co/400x400/e2e8f0/4a5568?text=Notebook' },
 ];
 
 const themes = {
+  shopee: { name: 'Shopee Orange', primary: '#ee4d2d', light: '#fff4f2', dark: '#d73112' },
   indigo: { name: 'Default Indigo', primary: '#4f46e5', light: '#e0e7ff', dark: '#3730a3' },
   sky: { name: 'Sky Blue', primary: '#0ea5e9', light: '#e0f2fe', dark: '#0369a1' },
   emerald: { name: 'Emerald Green', primary: '#10b981', light: '#d1fae5', dark: '#047857' },
   rose: { name: 'Rose Pink', primary: '#f43f5e', light: '#ffe4e6', dark: '#be123c' },
   amber: { name: 'Amber Orange', primary: '#f59e0b', light: '#fef3c7', dark: '#b45309' },
-  fuchsia: { name: 'Fuchsia Purple', primary: '#d946ef', light: '#f5d0fe', dark: '#a21caf' },
-  teal: { name: 'Teal', primary: '#14b8a6', light: '#ccfbf1', dark: '#0f766e' },
-  slate: { name: 'Cool Slate', primary: '#64748b', light: '#e2e8f0', dark: '#334155' },
-  lime: { name: 'Lime Green', primary: '#84cc16', light: '#ecfccb', dark: '#4d7c0f' },
-  violet: { name: 'Deep Violet', primary: '#7c3aed', light: '#e9d5ff', dark: '#5b21b6' },
 };
 
 // --- MAIN APP COMPONENT ---
@@ -38,19 +42,22 @@ export default function App() {
   const [users, setUsers] = useState(initialUsers);
   const [inventory, setInventory] = useState(initialInventory);
   const [pendingOrders, setPendingOrders] = useState([]);
+  const [purchaseHistory, setPurchaseHistory] = useState([]);
   const [notification, setNotification] = useState({ show: false, message: '', type: 'success' });
+  
   const [appSettings, setAppSettings] = useState({
       logo: 'https://img.icons8.com/plasticine/100/like-us.png',
-      theme: 'indigo'
+      theme: 'shopee',
+      inflation: 0, 
   });
 
-  useEffect(() => {
-    const root = document.documentElement;
-    const theme = themes[appSettings.theme];
-    root.style.setProperty('--color-primary', theme.primary);
-    root.style.setProperty('--color-primary-light', theme.light);
-    root.style.setProperty('--color-primary-dark', theme.dark);
-  }, [appSettings.theme]);
+  const appStyles = `
+    :root {
+      --color-primary: ${themes[appSettings.theme]?.primary || '#ee4d2d'};
+      --color-primary-light: ${themes[appSettings.theme]?.light || '#fff4f2'};
+      --color-primary-dark: ${themes[appSettings.theme]?.dark || '#d73112'};
+    }
+  `;
 
   const showNotification = (message, type = 'success', duration = 3000) => {
     setNotification({ show: true, message, type });
@@ -121,10 +128,10 @@ export default function App() {
   };
   
   const executePurchase = (employeeUsername, cart, isApproval = false) => {
-     const employee = users[employeeUsername];
-     const totalCost = cart.reduce((sum, item) => sum + (item.points * item.quantity), 0);
-     
-     if (employee.points >= totalCost) {
+      const employee = users[employeeUsername];
+      const totalCost = cart.reduce((sum, item) => sum + (item.points * item.quantity), 0);
+      
+      if (employee.points >= totalCost) {
         const updatedPoints = employee.points - totalCost;
         
         let updatedUsers = { ...users };
@@ -147,6 +154,16 @@ export default function App() {
             });
             return newInventory;
         });
+
+        const newPurchaseRecord = { 
+            id: Date.now(), 
+            employeeUsername, 
+            employeeName: employee.name, 
+            cart, 
+            totalCost, 
+            timestamp: new Date().toISOString() 
+        };
+        setPurchaseHistory(prev => [newPurchaseRecord, ...prev].slice(0, 50));
         
         const purchasedItems = cart.map(item => `${item.name} (x${item.quantity})`).join(', ');
         const notificationTarget = currentUser?.role === 'admin' ? `Admin Checkout for ${employee.name}` : `Employee: ${employee.name} (${employeeUsername})`;
@@ -161,8 +178,8 @@ export default function App() {
           --- END NOTIFICATION ---`, "color: #4ade80; font-weight: bold;");
 
         return { success: true, updatedPoints };
-     }
-     return { success: false };
+      }
+      return { success: false };
   };
 
   const handlePurchaseRequest = (cart) => {
@@ -202,33 +219,38 @@ export default function App() {
             onLogout={handleLogout} 
             showNotification={showNotification} 
             appSettings={appSettings}
+            purchaseHistory={purchaseHistory}
         />;
       case 'admin':
         return <AdminDashboard 
-                 user={currentUser} 
-                 onLogout={handleLogout} 
-                 inventory={inventory}
-                 setInventory={setInventory}
-                 users={users}
-                 setUsers={setUsers}
-                 showNotification={showNotification}
-                 executePurchase={executePurchase}
-                 pendingOrders={pendingOrders}
-                 setPendingOrders={setPendingOrders}
-                 addNotification={addNotification}
-                 appSettings={appSettings}
-                 setAppSettings={setAppSettings}
-               />;
+                    user={currentUser} 
+                    onLogout={handleLogout} 
+                    inventory={inventory}
+                    setInventory={setInventory}
+                    users={users}
+                    setUsers={setUsers}
+                    showNotification={showNotification}
+                    executePurchase={executePurchase}
+                    pendingOrders={pendingOrders}
+                    setPendingOrders={setPendingOrders}
+                    addNotification={addNotification}
+                    appSettings={appSettings}
+                    setAppSettings={setAppSettings}
+                    purchaseHistory={purchaseHistory}
+                  />;
       default:
-        return <LoginPage onLogin={handleLogin} />;
+        return <LoginPage onLogin={handleLogin} logo={appSettings.logo} />;
     }
   };
 
   return (
-    <div className="bg-slate-100 min-h-screen font-sans">
-      {notification.show && <NotificationBanner message={notification.message} type={notification.type} />}
-      {renderContent()}
-    </div>
+    <>
+      <style>{appStyles}</style>
+      <div className="bg-slate-100 min-h-screen font-sans">
+        {notification.show && <NotificationBanner message={notification.message} type={notification.type} />}
+        {renderContent()}
+      </div>
+    </>
   );
 }
 
@@ -258,12 +280,12 @@ const LoginPage = ({ onLogin, logo }) => {
   };
 
   return (
-    <div className="flex items-center justify-center min-h-screen px-4">
-      <div className="w-full max-w-md p-8 space-y-6 bg-white rounded-xl shadow-lg">
+    <div className="flex items-center justify-center min-h-screen bg-slate-100 px-4">
+      <div className="w-full max-w-sm p-8 space-y-6 bg-white rounded-xl shadow-2xl">
         <div className="text-center">
-        <img src={logo} alt="Company Logo" className="mx-auto h-20 w-auto mb-4 object-contain"/>
-          <h1 className="text-3xl font-bold text-slate-800">Care Rewards</h1>
-          <p className="mt-2 text-slate-500">Employee Store Login</p>
+          <img src={logo} alt="Company Logo" className="mx-auto h-20 w-auto mb-2 object-contain"/>
+          <h1 className="text-3xl font-bold text-slate-800">PinnPoints Store</h1>
+          <p className="mt-2 text-slate-500">Employee Login</p>
         </div>
         <form onSubmit={handleSubmit} className="space-y-6">
           <div>
@@ -283,13 +305,13 @@ const LoginPage = ({ onLogin, logo }) => {
   );
 };
 
-const Header = ({ user, onLogout, isAdmin, cartItemCount, onCartClick, appSettings }) => (
+const Header = ({ user, onLogout, isAdmin, cartItemCount, onCartClick, appSettings, inflationValue, onInflationChange, onInflationApply }) => (
   <header className="bg-white shadow-md sticky top-0 z-40">
     <div className="container mx-auto px-4 sm:px-6 lg:px-8">
       <div className="flex items-center justify-between h-16">
         <div className="flex items-center space-x-4">
            <img src={appSettings.logo} alt="Company Logo" className="h-10 w-auto object-contain"/>
-           <span className="text-xl font-bold text-slate-700">Care Rewards</span>
+           <span className="text-xl font-bold text-slate-700">PinnPoints Store</span>
         </div>
         <div className="flex items-center space-x-4">
           <div className="flex items-center space-x-2">
@@ -312,6 +334,27 @@ const Header = ({ user, onLogout, isAdmin, cartItemCount, onCartClick, appSettin
             </button>
             </>
           )}
+          {isAdmin && (
+            <div className="flex items-center gap-2 bg-slate-100 p-1 rounded-lg border">
+                <TrendingUp size={18} className="text-slate-500 ml-1" />
+                <label htmlFor="inflation-input" className="text-sm font-medium text-slate-600">Inflation:</label>
+                <input
+                    id="inflation-input"
+                    type="number"
+                    step="0.5"
+                    value={inflationValue}
+                    onChange={onInflationChange}
+                    className="form-input w-20 p-1 text-sm"
+                    placeholder="%"
+                />
+                <button
+                    onClick={onInflationApply}
+                    className="px-3 py-1 rounded-md bg-primary text-white hover:bg-primary-dark text-sm"
+                >
+                    Apply
+                </button>
+            </div>
+           )}
           <button onClick={onLogout} className="flex items-center space-x-2 text-slate-600 hover:text-primary transition-colors">
             <LogOut className="h-5 w-5" />
             <span className="text-sm font-medium">Logout</span>
@@ -322,12 +365,14 @@ const Header = ({ user, onLogout, isAdmin, cartItemCount, onCartClick, appSettin
   </header>
 );
 
-const StorePage = ({ user, setUser, users, setUsers, inventory, onPurchaseRequest, onLogout, showNotification, appSettings }) => {
+const StorePage = ({ user, setUser, users, setUsers, inventory, onPurchaseRequest, onLogout, showNotification, appSettings, purchaseHistory }) => {
   const [cart, setCart] = useState([]);
   const [isCartOpen, setIsCartOpen] = useState(false);
   const [storeView, setStoreView] = useState('store'); // store, notifications
+  const [previewImage, setPreviewImage] = useState(null);
   
   const unreadCount = user.notifications.filter(n => !n.read).length;
+  const userPurchaseHistory = purchaseHistory.filter(p => p.employeeUsername === user.username).slice(0, 3);
 
   const handleAddToCart = (item) => {
     const itemInCart = cart.find(cartItem => cartItem.id === item.id);
@@ -377,12 +422,12 @@ const StorePage = ({ user, setUser, users, setUsers, inventory, onPurchaseReques
   const cartItemCount = cart.reduce((sum, item) => sum + item.quantity, 0);
   
   return (
-    <>
+    <div className="bg-slate-50 min-h-screen">
       <Header user={user} onLogout={onLogout} cartItemCount={cartItemCount} onCartClick={() => setIsCartOpen(true)} appSettings={appSettings}/>
       <main className="container mx-auto p-4 sm:p-6 lg:p-8">
         <div className="flex items-center justify-between mb-6 border-b pb-4">
-           <h2 className="text-3xl font-bold text-slate-800">
-               {storeView === 'store' ? 'Store Items' : 'Notifications'}
+           <h2 className="text-2xl sm:text-3xl font-bold text-slate-800">
+               {storeView === 'store' ? 'PinnPoints Store' : 'Your Notifications'}
            </h2>
            <div className="flex space-x-1 bg-slate-200 p-1 rounded-lg">
                 <button onClick={() => setStoreView('store')} className={`px-3 py-2 text-sm font-medium rounded-md flex items-center gap-2 ${storeView === 'store' ? 'bg-white shadow' : 'text-slate-600 hover:bg-slate-300'}`}>
@@ -396,23 +441,36 @@ const StorePage = ({ user, setUser, users, setUsers, inventory, onPurchaseReques
         </div>
 
         {storeView === 'store' ? (
-            <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-6">
+          <>
+            <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 2xl:grid-cols-6 gap-3 sm:gap-4">
               {inventory.filter(item => item.stock > 0).map(item => (
-                <div key={item.id} className="bg-white rounded-xl shadow-lg overflow-hidden flex flex-col transition-transform hover:scale-105">
-                  <img src={item.image} alt={item.name} className="w-full h-48 object-cover" onError={(e) => { e.target.onerror = null; e.target.src='https://placehold.co/400x400/e2e8f0/4a5568?text=Image+Error'; }}/>
-                  <div className="p-4 flex flex-col flex-grow">
-                    <h3 className="text-lg font-bold text-slate-800">{item.name}</h3>
-                    <p className="text-sm text-slate-500 mt-1">In stock: {item.stock}</p>
-                    <div className="mt-4 mb-2 flex-grow">
-                       <p className="text-xl font-semibold text-primary">{item.points} Pinn Points</p>
+                <div key={item.id} className="bg-white rounded-md shadow-sm overflow-hidden flex flex-col transition-shadow hover:shadow-lg border border-slate-100">
+                   <div className="aspect-square w-full overflow-hidden cursor-pointer" onClick={() => setPreviewImage(item.image)}>
+                     <img src={item.image} alt={item.name} className="w-full h-full object-cover" onError={(e) => { e.target.onerror = null; e.target.src='https://placehold.co/400x400/e2e8f0/4a5568?text=Image+Error'; }}/>
+                   </div>
+                  <div className="p-3 flex flex-col flex-grow">
+                    <h3 className="text-sm font-medium text-slate-800 leading-snug truncate">{item.name}</h3>
+                    <div className="mt-2 mb-3 flex-grow">
+                        <div className="flex items-baseline gap-2">
+                            <p className="text-lg font-bold text-primary">{item.points.toLocaleString()}</p>
+                            {item.points !== item.basePoints && (
+                                <p className="text-sm text-slate-500 line-through">{item.basePoints.toLocaleString()}</p>
+                            )}
+                        </div>
                     </div>
-                    <button onClick={() => handleAddToCart(item)} className="w-full mt-auto flex items-center justify-center py-2 px-4 border border-transparent rounded-md shadow-sm text-sm font-medium text-white bg-primary hover:bg-primary-dark transition-colors">
-                      <PlusCircle className="h-4 w-4 mr-2"/> Add to Cart
+                     <p className="text-xs text-slate-500 mb-2">Stock: {item.stock}</p>
+                    <button onClick={() => handleAddToCart(item)} className="w-full mt-auto flex items-center justify-center py-2 px-2 border border-primary text-primary hover:bg-primary-light transition-colors text-sm rounded-md">
+                      Add to Cart
                     </button>
                   </div>
                 </div>
               ))}
             </div>
+            <div className="mt-12 grid grid-cols-1 lg:grid-cols-2 gap-8">
+              <Leaderboard users={users} title="Employee Leaderboard" />
+              <PurchaseHistory history={userPurchaseHistory} title="Your Recent Purchases" isAdminView={false}/>
+            </div>
+          </>
         ) : (
             <NotificationList notifications={user.notifications} />
         )}
@@ -425,10 +483,10 @@ const StorePage = ({ user, setUser, users, setUsers, inventory, onPurchaseReques
         onConfirmPurchase={handleConfirmRequest}
         userPoints={user.points}
       />
-    </>
+      {previewImage && <ImagePreviewModal imageUrl={previewImage} onClose={() => setPreviewImage(null)} />}
+    </div>
   );
 };
-
 
 const NotificationList = ({ notifications }) => {
     return (
@@ -453,7 +511,6 @@ const NotificationList = ({ notifications }) => {
         </div>
     );
 };
-
 
 const CartModal = ({ isOpen, onClose, cart, onUpdateQuantity, onConfirmPurchase, userPoints }) => {
     if (!isOpen) return null;
@@ -511,6 +568,17 @@ const CartModal = ({ isOpen, onClose, cart, onUpdateQuantity, onConfirmPurchase,
     );
 };
 
+const ImagePreviewModal = ({ imageUrl, onClose }) => {
+    return (
+        <div className="fixed inset-0 bg-black bg-opacity-75 z-[60] flex justify-center items-center p-4 animate-fade-in" onClick={onClose}>
+            <div className="relative max-w-3xl max-h-[80vh]">
+                <img src={imageUrl} alt="Enlarged preview" className="object-contain max-w-full max-h-full rounded-lg" />
+                 <button onClick={onClose} className="absolute -top-4 -right-4 bg-white text-slate-800 rounded-full p-1"><X size={20}/></button>
+            </div>
+        </div>
+    );
+};
+
 const ChangePasswordModal = ({ user, onPasswordChange }) => {
     const [newPassword, setNewPassword] = useState('');
     const [confirmPassword, setConfirmPassword] = useState('');
@@ -555,14 +623,37 @@ const ChangePasswordModal = ({ user, onPasswordChange }) => {
     );
 };
 
+const AdminDashboard = ({ user, onLogout, inventory, setInventory, users, setUsers, showNotification, executePurchase, pendingOrders, setPendingOrders, addNotification, appSettings, setAppSettings, purchaseHistory }) => {
+  const [adminView, setAdminView] = useState('overview');
+  const [inflationInput, setInflationInput] = useState(appSettings.inflation);
 
-const AdminDashboard = ({ user, onLogout, inventory, setInventory, users, setUsers, showNotification, executePurchase, pendingOrders, setPendingOrders, addNotification, appSettings, setAppSettings }) => {
-  const [adminView, setAdminView] = useState('approvals'); // approvals, checkout, inventory, employees
+  useEffect(() => {
+    setInflationInput(appSettings.inflation);
+  }, [appSettings.inflation]);
+
+  const handleApplyInflation = () => {
+      const newInflation = parseFloat(inflationInput);
+      if (isNaN(newInflation)) {
+          showNotification('Invalid inflation value.', 'error');
+          return;
+      }
+      
+      setAppSettings(prev => ({ ...prev, inflation: newInflation }));
+
+      setInventory(prevInventory =>
+          prevInventory.map(item => ({
+              ...item,
+              points: Math.round(item.basePoints * (1 + newInflation / 100)),
+          }))
+      );
+
+      showNotification(`Inflation set to ${newInflation}%. Item prices updated.`, 'success');
+  };
 
   const renderAdminContent = () => {
     switch(adminView) {
       case 'inventory':
-        return <InventoryManagement inventory={inventory} setInventory={setInventory} showNotification={showNotification} />;
+        return <InventoryManagement inventory={inventory} setInventory={setInventory} showNotification={showNotification} appSettings={appSettings} />;
       case 'employees':
         return <EmployeeManagement users={users} setUsers={setUsers} showNotification={showNotification} />;
       case 'checkout':
@@ -570,33 +661,104 @@ const AdminDashboard = ({ user, onLogout, inventory, setInventory, users, setUse
       case 'settings':
         return <AppSettingsPage appSettings={appSettings} setAppSettings={setAppSettings} showNotification={showNotification}/>;
       case 'approvals':
-      default:
         return <ApprovalQueue pendingOrders={pendingOrders} setPendingOrders={setPendingOrders} users={users} executePurchase={executePurchase} showNotification={showNotification} addNotification={addNotification}/>;
+      case 'overview':
+      default:
+        return (
+          <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
+            <Leaderboard users={users} title="Top 10 Employees" />
+            <PurchaseHistory history={purchaseHistory.slice(0, 3)} title="Recent Store Purchases" isAdminView={true}/>
+          </div>
+        );
     }
   }
 
   return (
-    <>
-      <Header user={user} onLogout={onLogout} isAdmin={true} appSettings={appSettings}/>
+    <div className="bg-slate-50 min-h-screen">
+      <Header 
+        user={user} 
+        onLogout={onLogout} 
+        isAdmin={true} 
+        appSettings={appSettings}
+        inflationValue={inflationInput}
+        onInflationChange={(e) => setInflationInput(e.target.value)}
+        onInflationApply={handleApplyInflation}
+      />
       <div className="container mx-auto p-4 sm:p-6 lg:p-8">
         <div className="flex items-center justify-between mb-6 border-b pb-4">
            <h2 className="text-3xl font-bold text-slate-800">Admin Dashboard</h2>
-           <div className="flex space-x-1 bg-slate-200 p-1 rounded-lg">
-                <button onClick={() => setAdminView('approvals')} className={`px-3 py-2 text-sm font-medium rounded-md flex items-center gap-2 relative ${adminView === 'approvals' ? 'bg-white shadow' : 'text-slate-600 hover:bg-slate-300'}`}>
-                    <Bell size={16}/> Approvals
-                    {pendingOrders.length > 0 && <span className="absolute -top-1 -right-1 flex h-4 w-4 items-center justify-center rounded-full bg-red-500 text-xs text-white">{pendingOrders.length}</span>}
-                </button>
-              <button onClick={() => setAdminView('checkout')} className={`px-3 py-2 text-sm font-medium rounded-md flex items-center gap-2 ${adminView === 'checkout' ? 'bg-white shadow' : 'text-slate-600 hover:bg-slate-300'}`}><ShoppingCart size={16}/> Checkout</button>
-              <button onClick={() => setAdminView('inventory')} className={`px-3 py-2 text-sm font-medium rounded-md flex items-center gap-2 ${adminView === 'inventory' ? 'bg-white shadow' : 'text-slate-600 hover:bg-slate-300'}`}><Package size={16}/> Inventory</button>
-              <button onClick={() => setAdminView('employees')} className={`px-3 py-2 text-sm font-medium rounded-md flex items-center gap-2 ${adminView === 'employees' ? 'bg-white shadow' : 'text-slate-600 hover:bg-slate-300'}`}><Users size={16}/> Employees</button>
-              <button onClick={() => setAdminView('settings')} className={`px-3 py-2 text-sm font-medium rounded-md flex items-center gap-2 ${adminView === 'settings' ? 'bg-white shadow' : 'text-slate-600 hover:bg-slate-300'}`}><Settings size={16}/> Settings</button>
+           <div className="flex flex-wrap gap-1 bg-slate-200 p-1 rounded-lg">
+             <button onClick={() => setAdminView('overview')} className={`px-3 py-2 text-sm font-medium rounded-md flex items-center gap-2 ${adminView === 'overview' ? 'bg-white shadow' : 'text-slate-600 hover:bg-slate-300'}`}><TrendingUp size={16}/> Overview</button>
+               <button onClick={() => setAdminView('approvals')} className={`px-3 py-2 text-sm font-medium rounded-md flex items-center gap-2 relative ${adminView === 'approvals' ? 'bg-white shadow' : 'text-slate-600 hover:bg-slate-300'}`}>
+                   <Bell size={16}/> Approvals
+                   {pendingOrders.length > 0 && <span className="absolute -top-1 -right-1 flex h-4 w-4 items-center justify-center rounded-full bg-red-500 text-xs text-white">{pendingOrders.length}</span>}
+               </button>
+             <button onClick={() => setAdminView('checkout')} className={`px-3 py-2 text-sm font-medium rounded-md flex items-center gap-2 ${adminView === 'checkout' ? 'bg-white shadow' : 'text-slate-600 hover:bg-slate-300'}`}><ShoppingCart size={16}/> Checkout</button>
+             <button onClick={() => setAdminView('inventory')} className={`px-3 py-2 text-sm font-medium rounded-md flex items-center gap-2 ${adminView === 'inventory' ? 'bg-white shadow' : 'text-slate-600 hover:bg-slate-300'}`}><Package size={16}/> Inventory</button>
+             <button onClick={() => setAdminView('employees')} className={`px-3 py-2 text-sm font-medium rounded-md flex items-center gap-2 ${adminView === 'employees' ? 'bg-white shadow' : 'text-slate-600 hover:bg-slate-300'}`}><Users size={16}/> Employees</button>
+             <button onClick={() => setAdminView('settings')} className={`px-3 py-2 text-sm font-medium rounded-md flex items-center gap-2 ${adminView === 'settings' ? 'bg-white shadow' : 'text-slate-600 hover:bg-slate-300'}`}><Settings size={16}/> Settings</button>
            </div>
         </div>
         
         {renderAdminContent()}
       </div>
-    </>
+    </div>
   );
+};
+
+const Leaderboard = ({ users, title }) => {
+  const employeeList = Object.entries(users).filter(([_, user]) => user.role === 'employee');
+  const sortedEmployees = employeeList.sort(([, a], [, b]) => b.points - a.points).slice(0, 10);
+
+  const getRankIndicator = (rank) => {
+    if (rank === 0) return <Award className="text-amber-400"/>;
+    if (rank === 1) return <Award className="text-slate-400"/>;
+    if (rank === 2) return <Award className="text-amber-600"/>;
+    return <span className="text-slate-400 font-semibold">{rank + 1}</span>;
+  }
+
+  return (
+    <div className="bg-white p-6 rounded-xl shadow-lg">
+       <h3 className="text-xl font-bold text-slate-700 mb-4">{title}</h3>
+       <ol className="space-y-3">
+        {sortedEmployees.map(([username, employee], index) => (
+          <li key={username} className="flex items-center justify-between p-3 bg-slate-50 rounded-lg">
+            <div className="flex items-center gap-4">
+              <span className="w-6 text-center">{getRankIndicator(index)}</span>
+              <span className="font-medium text-slate-800">{employee.name}</span>
+            </div>
+            <span className="font-bold text-primary">{employee.points.toLocaleString()} pts</span>
+          </li>
+        ))}
+       </ol>
+    </div>
+  )
+};
+
+const PurchaseHistory = ({ history, title, isAdminView }) => {
+  return (
+    <div className="bg-white p-6 rounded-xl shadow-lg">
+        <h3 className="text-xl font-bold text-slate-700 mb-4">{title}</h3>
+        <div className="space-y-4">
+            {history.length === 0 ? (
+                <p className="text-slate-500 text-center py-8">No purchase history yet.</p>
+            ) : (
+                history.map(purchase => (
+                    <div key={purchase.id} className="border-b pb-3 last:border-b-0">
+                        {isAdminView && <p className="font-bold text-slate-800">{purchase.employeeName}</p>}
+                        <div className="text-sm text-slate-500 flex justify-between">
+                            <span>{new Date(purchase.timestamp).toLocaleString()}</span>
+                            <span className="font-semibold text-slate-600">Total: {purchase.totalCost} pts</span>
+                        </div>
+                        <ul className="list-disc list-inside text-sm text-slate-600 mt-1 pl-2">
+                           {purchase.cart.map(item => <li key={item.id}>{item.name} (x{item.quantity})</li>)}
+                        </ul>
+                    </div>
+                ))
+            )}
+        </div>
+    </div>
+  )
 };
 
 const AppSettingsPage = ({ appSettings, setAppSettings, showNotification }) => {
@@ -657,7 +819,6 @@ const AppSettingsPage = ({ appSettings, setAppSettings, showNotification }) => {
         </div>
     );
 };
-
 
 const ApprovalQueue = ({ pendingOrders, setPendingOrders, users, executePurchase, showNotification, addNotification }) => {
     
@@ -795,7 +956,12 @@ const CheckoutPOS = ({ users, inventory, executePurchase, showNotification }) =>
                             <div key={item.id} className="border rounded-lg p-3 flex flex-col items-center text-center">
                                 <img src={item.image} alt={item.name} className="w-24 h-24 object-cover rounded-md mb-2" onError={(e) => { e.target.onerror = null; e.target.src='https://placehold.co/100x100/e2e8f0/4a5568?text=Item'; }}/>
                                 <p className="font-semibold text-sm flex-grow">{item.name}</p>
-                                <p className="text-xs text-slate-500 mb-2">{item.points} pts</p>
+                                <div className="flex items-baseline justify-center gap-2 text-xs text-slate-500 mb-2">
+                                    <span className="text-base font-bold text-primary">{item.points} pts</span>
+                                    {item.points !== item.basePoints && (
+                                        <span className="line-through">{item.basePoints} pts</span>
+                                    )}
+                                </div>
                                 <button onClick={() => handleAddToCart(item.id)} className="w-full bg-primary-light text-primary-dark hover:bg-primary/20 text-xs font-bold py-2 px-2 rounded-md flex items-center justify-center gap-1">
                                     <PlusCircle size={14}/> Add
                                 </button>
@@ -852,11 +1018,12 @@ const CheckoutPOS = ({ users, inventory, executePurchase, showNotification }) =>
             </div>
         </div>
     );
-}
+};
 
-const InventoryManagement = ({ inventory, setInventory, showNotification }) => {
+const InventoryManagement = ({ inventory, setInventory, showNotification, appSettings }) => {
     const [showModal, setShowModal] = useState(false);
     const [editingItem, setEditingItem] = useState(null);
+    const inventoryFileInputRef = useRef(null);
     
     const handleAddItem = () => {
         setEditingItem(null);
@@ -869,32 +1036,123 @@ const InventoryManagement = ({ inventory, setInventory, showNotification }) => {
     };
 
     const handleDeleteItem = (itemId) => {
-        const isConfirmed = window.confirm("Are you sure you want to delete this item? This action cannot be undone.");
-        if (isConfirmed) {
+        // A simple confirmation dialog. For a real app, a custom modal is better.
+        if (window.confirm("Are you sure you want to delete this item? This action cannot be undone.")) {
             setInventory(prev => prev.filter(item => item.id !== itemId));
             showNotification("Item deleted successfully.", "success");
         }
     };
     
     const handleSaveItem = (itemData) => {
+        const currentInflation = appSettings.inflation || 0;
+        const calculatedPoints = Math.round(itemData.basePoints * (1 + currentInflation / 100));
+
         if (editingItem) {
-            setInventory(prev => prev.map(item => item.id === editingItem.id ? { ...item, ...itemData } : item));
+            setInventory(prev => prev.map(item => 
+                item.id === editingItem.id 
+                    ? { ...item, ...itemData, points: calculatedPoints } 
+                    : item
+            ));
             showNotification("Item updated successfully.");
         } else {
-            const newItem = { id: Date.now(), ...itemData };
+            const newItem = { 
+                id: Date.now(), 
+                ...itemData,
+                points: calculatedPoints,
+            };
             setInventory(prev => [...prev, newItem]);
             showNotification("Item added successfully.");
         }
         setShowModal(false);
     };
+
+    const handleDownloadInventoryTemplate = () => {
+        if (!window.XLSX) {
+            showNotification("Excel library not loaded, please wait.", "warning");
+            return;
+        }
+        const templateData = [{
+            name: "Sample Hoodie",
+            basePoints: 1500,
+            stock: 10,
+            image: "https://placehold.co/400x400/cccccc/444444?text=Sample"
+        }];
+        const ws = window.XLSX.utils.json_to_sheet(templateData);
+        const wb = window.XLSX.utils.book_new();
+        window.XLSX.utils.book_append_sheet(wb, ws, "Inventory");
+        window.XLSX.writeFile(wb, "inventory_template.xlsx");
+    };
     
+    const handleInventoryUpload = (event) => {
+        const file = event.target.files[0];
+        if (!file || !window.XLSX) return;
+
+        const reader = new FileReader();
+        reader.onload = (e) => {
+            try {
+                const data = new Uint8Array(e.target.result);
+                const workbook = window.XLSX.read(data, { type: 'array' });
+                const sheetName = workbook.SheetNames[0];
+                const worksheet = workbook.Sheets[sheetName];
+                const json = window.XLSX.utils.sheet_to_json(worksheet);
+
+                if (json.length === 0) {
+                    showNotification("The uploaded file is empty.", "warning");
+                    return;
+                }
+
+                const currentInflation = appSettings.inflation || 0;
+                const newItems = json.map((row, index) => {
+                    const basePoints = Number(row.basePoints);
+                    const stock = Number(row.stock);
+
+                    if (!row.name || isNaN(basePoints) || isNaN(stock)) {
+                        console.warn(`Skipping invalid row ${index + 1}:`, row);
+                        return null;
+                    }
+                    
+                    return {
+                        id: Date.now() + index,
+                        name: row.name,
+                        basePoints: basePoints,
+                        points: Math.round(basePoints * (1 + currentInflation / 100)),
+                        stock: stock,
+                        image: row.image || 'https://placehold.co/400x400/e2e8f0/4a5568?text=New+Item'
+                    };
+                }).filter(Boolean);
+
+                if (newItems.length > 0) {
+                    setInventory(prev => [...prev, ...newItems]);
+                    showNotification(`${newItems.length} new item(s) added from the file.`, "success");
+                } else {
+                    showNotification("No valid items found in the file. Check column names (name, basePoints, stock).", "error");
+                }
+
+            } catch (error) {
+                console.error("Error parsing Excel file:", error);
+                showNotification("Failed to parse file. Please use the template.", "error");
+            }
+        };
+        reader.readAsArrayBuffer(file);
+        event.target.value = null;
+    };
+
     return (
         <div className="bg-white p-6 rounded-xl shadow-lg">
-            <div className="flex justify-between items-center mb-4">
+            <div className="flex flex-wrap justify-between items-center mb-4 gap-3">
                 <h3 className="text-xl font-bold text-slate-700">Manage Inventory</h3>
-                <button onClick={handleAddItem} className="flex items-center bg-primary text-white px-3 py-2 rounded-lg hover:bg-primary-dark transition-colors text-sm">
-                    <PlusCircle className="h-4 w-4 mr-2" /> Add Item
-                </button>
+                <div className="flex items-center gap-2">
+                    <button onClick={handleDownloadInventoryTemplate} className="flex items-center bg-gray-600 text-white px-3 py-2 rounded-lg hover:bg-gray-700 transition-colors text-sm">
+                        <Download className="h-4 w-4 mr-2" /> Template
+                    </button>
+                    <input type="file" ref={inventoryFileInputRef} onChange={handleInventoryUpload} className="hidden" accept=".xlsx, .xls, .csv"/>
+                    <button onClick={() => inventoryFileInputRef.current.click()} className="flex items-center bg-green-600 text-white px-3 py-2 rounded-lg hover:bg-green-700 transition-colors text-sm">
+                        <Upload className="h-4 w-4 mr-2" /> Upload Items
+                    </button>
+                    <button onClick={handleAddItem} className="flex items-center bg-primary text-white px-3 py-2 rounded-lg hover:bg-primary-dark transition-colors text-sm">
+                        <PlusCircle className="h-4 w-4 mr-2" /> Add Manually
+                    </button>
+                </div>
             </div>
             <div className="overflow-x-auto">
                 <table className="w-full text-sm text-left text-slate-500">
@@ -902,7 +1160,8 @@ const InventoryManagement = ({ inventory, setInventory, showNotification }) => {
                         <tr>
                             <th scope="col" className="px-6 py-3">Image</th>
                             <th scope="col" className="px-6 py-3">Item Name</th>
-                            <th scope="col" className="px-6 py-3">Points Cost</th>
+                            <th scope="col" className="px-6 py-3">Current Points</th>
+                            <th scope="col" className="px-6 py-3">Base Points</th>
                             <th scope="col" className="px-6 py-3">Stock</th>
                             <th scope="col" className="px-6 py-3 text-right">Actions</th>
                         </tr>
@@ -914,7 +1173,8 @@ const InventoryManagement = ({ inventory, setInventory, showNotification }) => {
                                     <img src={item.image} alt={item.name} className="h-12 w-12 rounded-md object-cover" onError={(e) => { e.target.onerror = null; e.target.src='https://placehold.co/100x100/e2e8f0/4a5568?text=Err'; }}/>
                                 </td>
                                 <th scope="row" className="px-6 py-4 font-medium text-slate-900 whitespace-nowrap">{item.name}</th>
-                                <td className="px-6 py-4">{item.points}</td>
+                                <td className="px-6 py-4 font-semibold">{item.points}</td>
+                                <td className="px-6 py-4">{item.basePoints}</td>
                                 <td className="px-6 py-4">{item.stock}</td>
                                 <td className="px-6 py-4 text-right">
                                     <div className="flex justify-end space-x-2">
@@ -934,7 +1194,7 @@ const InventoryManagement = ({ inventory, setInventory, showNotification }) => {
 
 const ItemModal = ({ item, onClose, onSave, showNotification }) => {
     const [name, setName] = useState(item?.name || '');
-    const [points, setPoints] = useState(item?.points || '');
+    const [basePoints, setBasePoints] = useState(item?.basePoints || '');
     const [stock, setStock] = useState(item?.stock || '');
     const [image, setImage] = useState(item?.image || '');
     const fileInputRef = useRef(null);
@@ -957,7 +1217,7 @@ const ItemModal = ({ item, onClose, onSave, showNotification }) => {
     
     const handleSubmit = (e) => {
         e.preventDefault();
-        onSave({ name, points: Number(points), stock: Number(stock), image });
+        onSave({ name, basePoints: Number(basePoints), stock: Number(stock), image });
     };
 
     return (
@@ -973,8 +1233,8 @@ const ItemModal = ({ item, onClose, onSave, showNotification }) => {
                         <input type="text" value={name} onChange={e => setName(e.target.value)} className="mt-1 w-full form-input" required />
                     </div>
                     <div>
-                        <label className="block text-sm font-medium text-slate-700">Points Cost</label>
-                        <input type="number" value={points} onChange={e => setPoints(e.target.value)} className="mt-1 w-full form-input" required />
+                        <label className="block text-sm font-medium text-slate-700">Base Points Cost</label>
+                        <input type="number" value={basePoints} onChange={e => setBasePoints(e.target.value)} className="mt-1 w-full form-input" required />
                     </div>
                     <div>
                         <label className="block text-sm font-medium text-slate-700">Stock</label>
@@ -1121,7 +1381,6 @@ const EmployeeManagement = ({ users, setUsers, showNotification }) => {
         window.XLSX.writeFile(wb, filename);
     };
 
-
     const employeeList = Object.entries(users).filter(([_, user]) => user.role === 'employee');
 
     return (
@@ -1195,7 +1454,7 @@ const EmployeeModal = ({ user, onClose, onSave }) => {
     };
 
     return (
-        <div className="fixed inset-0 bg-black bg-opacity-50 z-50 flex justify-center items-center p-4">
+        <div className="fixed inset-0 bg-black bg-opacity-60 z-50 flex justify-center items-center p-4">
             <div className="bg-white p-8 rounded-lg shadow-2xl w-full max-w-md">
                 <div className="flex justify-between items-center mb-6">
                    <h2 className="text-2xl font-bold text-slate-800">Edit Employee: {user.username}</h2>
@@ -1266,14 +1525,15 @@ const EmployeeModal = ({ user, onClose, onSave }) => {
              background-color: #f8fafc; border: 1px solid #cbd5e1;
              border-radius: 0.375rem; font-size: 0.875rem;
              box-shadow: 0 1px 2px 0 rgb(0 0 0 / 0.05);
+             transition: border-color .15s ease-in-out,box-shadow .15s ease-in-out;
           }
 
           .form-input:focus {
-              outline: 2px solid transparent; outline-offset: 2px;
-              --tw-ring-offset-shadow: var(--tw-ring-inset) 0 0 0 var(--tw-ring-offset-width) var(--tw-ring-offset-color);
-              --tw-ring-shadow: var(--tw-ring-inset) 0 0 0 calc(1px + var(--tw-ring-offset-width)) var(--tw-ring-color);
-              box-shadow: var(--tw-ring-offset-shadow), var(--tw-ring-shadow), var(--tw-shadow, 0 0 #0000);
-              border-color: var(--color-primary);
+             outline: 2px solid transparent; outline-offset: 2px;
+             --tw-ring-offset-shadow: var(--tw-ring-inset) 0 0 0 var(--tw-ring-offset-width) var(--tw-ring-offset-color);
+             --tw-ring-shadow: var(--tw-ring-inset) 0 0 0 calc(1px + var(--tw-ring-offset-width)) var(--tw-ring-color);
+             box-shadow: var(--tw-ring-offset-shadow), var(--tw-ring-shadow), var(--tw-shadow, 0 0 #0000);
+             border-color: var(--color-primary);
           }
           
           @keyframes fade-down {
