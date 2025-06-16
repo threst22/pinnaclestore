@@ -35,18 +35,6 @@ const firebaseConfig = {
   measurementId: "G-L99FF0D96V"
 };
 
-let app, auth, db;
-let firebaseInitializationError = null;
-
-try {
-  app = initializeApp(firebaseConfig);
-  auth = getAuth(app);
-  db = getFirestore(app);
-} catch (error) {
-  console.error("Firebase Initialization Error:", error);
-  firebaseInitializationError = error;
-}
-
 const themes = {
   shopee: { name: 'Shopee Orange', primary: '#ee4d2d', light: '#fff4f2', dark: '#d73112' },
   indigo: { name: 'Default Indigo', primary: '#4f46e5', light: '#e0e7ff', dark: '#3730a3' },
@@ -67,18 +55,33 @@ export default function App() {
   const [purchaseHistory, setPurchaseHistory] = useState([]);
   const [notification, setNotification] = useState({ show: false, message: '', type: 'success' });
   const [cart, setCart] = useState([]);
+  
+  const [firebaseServices, setFirebaseServices] = useState(null);
+  const [firebaseError, setFirebaseError] = useState(null);
 
   const [appSettings, setAppSettings] = useState({
       logo: 'https://img.icons8.com/plasticine/100/like-us.png',
       theme: 'shopee',
       inflation: 0, 
   });
+  
+  useEffect(() => {
+    try {
+        const app = initializeApp(firebaseConfig);
+        const auth = getAuth(app);
+        const db = getFirestore(app);
+        setFirebaseServices({ auth, db });
+    } catch (error) {
+        console.error("Firebase Initialization Error:", error);
+        setFirebaseError(error);
+    }
+  }, []);
 
   useEffect(() => {
-    if (firebaseInitializationError) {
-        setView('error');
-        return;
-    }
+    if (!firebaseServices) return;
+
+    const { auth, db } = firebaseServices;
+    
     const unsubscribe = onAuthStateChanged(auth, async (user) => {
       try {
         if (user) {
@@ -89,23 +92,23 @@ export default function App() {
                 const userData = { uid: user.uid, email: user.email, ...userDocSnap.data() };
                 setCurrentUserData(userData);
                 
-                const unsubUsers = onSnapshot(query(collection(db, 'users')), (snapshot) => {
+                onSnapshot(query(collection(db, 'users')), (snapshot) => {
                     const usersData = {};
                     snapshot.forEach(doc => usersData[doc.id] = { ...doc.data(), uid: doc.id });
                     setUsers(usersData);
                 });
 
-                const unsubInventory = onSnapshot(query(collection(db, 'inventory')), (snapshot) => {
+                onSnapshot(query(collection(db, 'inventory')), (snapshot) => {
                     const inventoryData = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
                     setInventory(inventoryData);
                 });
 
-                const unsubOrders = onSnapshot(query(collection(db, 'pendingOrders')), (snapshot) => {
+                onSnapshot(query(collection(db, 'pendingOrders')), (snapshot) => {
                     const ordersData = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
                     setPendingOrders(ordersData);
                 });
                 
-                const unsubHistory = onSnapshot(query(collection(db, 'purchaseHistory')), (snapshot) => {
+                onSnapshot(query(collection(db, 'purchaseHistory')), (snapshot) => {
                     const historyData = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
                     setPurchaseHistory(historyData);
                 });
@@ -114,13 +117,6 @@ export default function App() {
                     setView('forceChangePasswordPage');
                 } else {
                     setView(userData.role === 'admin' ? 'admin' : 'store');
-                }
-                
-                return () => {
-                    unsubUsers();
-                    unsubInventory();
-                    unsubOrders();
-                    unsubHistory();
                 }
             } else {
                 setView('login');
@@ -139,7 +135,7 @@ export default function App() {
     });
 
     return () => unsubscribe();
-  }, []);
+  }, [firebaseServices]);
 
   const appStyles = `
     :root {
@@ -157,6 +153,7 @@ export default function App() {
   };
 
   const addNotification = async (userId, message, type) => {
+    const { db } = firebaseServices;
     const newNotification = {
         id: Date.now(),
         message,
@@ -178,6 +175,7 @@ export default function App() {
   };
 
   const handleLogin = async (email, password) => {
+    const { auth } = firebaseServices;
     try {
         await signInWithEmailAndPassword(auth, email, password);
         showNotification('Login successful!', 'success');
@@ -187,6 +185,7 @@ export default function App() {
   };
 
   const handleChangePassword = async (newPassword) => {
+    const { db } = firebaseServices;
     try {
         await updatePassword(currentUser, newPassword);
         const userRef = doc(db, 'users', currentUser.uid);
@@ -200,6 +199,7 @@ export default function App() {
   };
 
   const handleLogout = async () => {
+    const { auth } = firebaseServices;
     try {
         await signOut(auth);
         setCart([]);
@@ -209,6 +209,7 @@ export default function App() {
   };
   
   const executePurchase = async (employeeId, purchaseCart, isApproval = false) => {
+      const { db } = firebaseServices;
       const employee = users[employeeId];
       if (!employee) return { success: false, message: "Employee not found." };
       
@@ -255,6 +256,7 @@ export default function App() {
   };
 
   const handlePurchaseRequest = async (purchaseCart) => {
+    const { db } = firebaseServices;
     try {
         await addDoc(collection(db, 'pendingOrders'), {
             employeeId: currentUser.uid,
@@ -283,18 +285,18 @@ export default function App() {
   };
 
   const renderContent = () => {
-    if (view === 'error') {
+    if (firebaseError) {
       return (
         <div className="flex items-center justify-center min-h-screen text-red-500 font-semibold text-center p-4 bg-red-50">
           <div>
             <h1 className="text-2xl mb-2">Application Error</h1>
             <p className="text-slate-700">Could not initialize Firebase. Please check your API keys and Firebase project settings.</p>
-            <p className="text-sm text-gray-500 mt-4">Error: {firebaseInitializationError?.message}</p>
+            <p className="text-sm text-gray-500 mt-4">Error: {firebaseError?.message}</p>
           </div>
         </div>
       );
     }
-    if (view === 'loading') {
+    if (view === 'loading' || !firebaseServices) {
         return <div className="flex items-center justify-center min-h-screen">Loading...</div>;
     }
 
@@ -313,6 +315,7 @@ export default function App() {
             appSettings={appSettings}
             onLogout={handleLogout}
             user={currentUserData}
+            firebaseServices={firebaseServices}
             />;
       case 'store':
         return <StorePage 
@@ -326,6 +329,7 @@ export default function App() {
             setCart={setCart}
             setView={setView}
             users={users}
+            firebaseServices={firebaseServices}
         />;
       case 'admin':
         return <AdminDashboard 
@@ -340,6 +344,7 @@ export default function App() {
                     appSettings={appSettings}
                     setAppSettings={setAppSettings}
                     purchaseHistory={purchaseHistory}
+                    firebaseServices={firebaseServices}
                   />;
       default:
         return <LoginPage onLogin={handleLogin} logo={appSettings.logo} />;
@@ -358,6 +363,8 @@ export default function App() {
 }
 
 // --- SUB-COMPONENTS ---
+// ... (The rest of the sub-components remain largely the same, but they would need to receive `firebaseServices` as a prop if they interact with Firebase directly)
+// ... I will now paste the rest of the file, ensuring props are passed correctly.
 
 const NotificationBanner = ({ message, type }) => {
   const baseStyle = 'bg-green-500';
@@ -468,8 +475,8 @@ const Header = ({ user, onLogout, isAdmin, cartItemCount, onCartClick, appSettin
   </header>
 );
 
-const StorePage = ({ user, users, inventory, onLogout, showNotification, appSettings, purchaseHistory, cart, setCart, setView }) => {
-  const [storeView, setStoreView] = useState('store'); // store, notifications
+const StorePage = ({ user, users, inventory, onLogout, showNotification, appSettings, purchaseHistory, cart, setCart, setView, firebaseServices }) => {
+  const [storeView, setStoreView] = useState('store');
   
   const unreadCount = user.notifications.filter(n => !n.read).length;
   const userPurchaseHistory = purchaseHistory.filter(p => p.employeeId === user.uid).slice(0, 3);
@@ -492,6 +499,7 @@ const StorePage = ({ user, users, inventory, onLogout, showNotification, appSett
   
   const handleViewNotifications = async () => {
     setStoreView('notifications');
+    const { db } = firebaseServices;
     try {
         const userRef = doc(db, 'users', user.uid);
         const userSnap = await getDoc(userRef);
@@ -564,13 +572,13 @@ const StorePage = ({ user, users, inventory, onLogout, showNotification, appSett
   );
 };
 
+// ... (The rest of the components would be here, and any that need firebaseServices would have it passed as a prop)
+
 const NotificationList = ({ notifications }) => {
     return (
         <div className="bg-white p-6 rounded-xl shadow-lg max-w-4xl mx-auto">
             <div className="space-y-4">
-                {notifications.length === 0 ? (
-                    <p className="text-slate-500 text-center py-8">You have no notifications.</p>
-                ) : (
+                {notifications && notifications.length > 0 ? (
                     notifications.map(n => (
                         <div key={n.id} className={`p-4 rounded-lg flex items-start gap-4 ${n.type === 'success' ? 'bg-green-50 border-green-200' : 'bg-red-50 border-red-200'} border`}>
                             <div>
@@ -582,6 +590,8 @@ const NotificationList = ({ notifications }) => {
                             </div>
                         </div>
                     ))
+                ) : (
+                    <p className="text-slate-500 text-center py-8">You have no notifications.</p>
                 )}
             </div>
         </div>
@@ -691,7 +701,7 @@ const ForceChangePasswordPage = ({ onPasswordChange }) => {
     );
 };
 
-const AdminDashboard = ({ user, onLogout, inventory, users, showNotification, executePurchase, pendingOrders, addNotification, appSettings, setAppSettings, purchaseHistory }) => {
+const AdminDashboard = ({ user, onLogout, inventory, users, showNotification, executePurchase, pendingOrders, addNotification, appSettings, setAppSettings, purchaseHistory, firebaseServices }) => {
   const [adminView, setAdminView] = useState('overview');
   const [inflationInput, setInflationInput] = useState(appSettings.inflation);
   const [editingUser, setEditingUser] = useState(null);
@@ -701,6 +711,7 @@ const AdminDashboard = ({ user, onLogout, inventory, users, showNotification, ex
   }, [appSettings.inflation]);
 
   const handleApplyInflation = () => {
+      const { db } = firebaseServices;
       const newInflation = parseFloat(inflationInput);
       if (isNaN(newInflation)) {
           showNotification('Invalid inflation value.', 'error');
@@ -725,7 +736,7 @@ const AdminDashboard = ({ user, onLogout, inventory, users, showNotification, ex
 
   const handleSaveUser = async (userId, userData) => {
     try {
-        const userRef = doc(db, 'users', userId);
+        const userRef = doc(firebaseServices.db, 'users', userId);
         await updateDoc(userRef, userData);
         showNotification(`${userData.name}'s details updated successfully.`);
         setEditingUser(null);
@@ -738,17 +749,17 @@ const AdminDashboard = ({ user, onLogout, inventory, users, showNotification, ex
   const renderAdminContent = () => {
     switch(adminView) {
       case 'inventory':
-        return <InventoryManagement inventory={inventory} showNotification={showNotification} appSettings={appSettings} />;
+        return <InventoryManagement inventory={inventory} showNotification={showNotification} appSettings={appSettings} firebaseServices={firebaseServices} />;
       case 'employees':
-        return <EmployeeManagement users={Object.values(users)} showNotification={showNotification} onEditUser={handleEditUserClick} />;
+        return <EmployeeManagement users={Object.values(users)} showNotification={showNotification} onEditUser={handleEditUserClick} firebaseServices={firebaseServices} />;
       case 'editEmployee':
         return <EditEmployeePage user={editingUser} onSave={handleSaveUser} setAdminView={setAdminView} />;
       case 'checkout':
-        return <CheckoutPOS users={users} inventory={inventory} executePurchase={executePurchase} showNotification={showNotification} />;
+        return <CheckoutPOS users={users} inventory={inventory} executePurchase={executePurchase} showNotification={showNotification} firebaseServices={firebaseServices}/>;
       case 'settings':
         return <AppSettingsPage appSettings={appSettings} setAppSettings={setAppSettings} showNotification={showNotification}/>;
       case 'approvals':
-        return <ApprovalQueue pendingOrders={pendingOrders} users={users} executePurchase={executePurchase} showNotification={showNotification} addNotification={addNotification}/>;
+        return <ApprovalQueue pendingOrders={pendingOrders} users={users} executePurchase={executePurchase} showNotification={showNotification} addNotification={addNotification} firebaseServices={firebaseServices}/>;
       case 'overview':
       default:
         return (
@@ -907,24 +918,24 @@ const AppSettingsPage = ({ appSettings, setAppSettings, showNotification }) => {
     );
 };
 
-const ApprovalQueue = ({ pendingOrders, users, executePurchase, showNotification, addNotification }) => {
+const ApprovalQueue = ({ pendingOrders, users, executePurchase, showNotification, addNotification, firebaseServices }) => {
     
     const handleApprove = async (order) => {
         const result = await executePurchase(order.employeeId, order.cart, true);
         if(result.success){
             showNotification(`Order #${order.id} for ${users[order.employeeId].name} approved.`, 'success');
-            await deleteDoc(doc(db, "pendingOrders", order.id));
+            await deleteDoc(doc(firebaseServices.db, "pendingOrders", order.id));
         } else {
             showNotification(`Approval failed. ${users[order.employeeId].name} has insufficient points.`, 'error');
             await addNotification(order.employeeId, `Your purchase request was denied due to insufficient points.`, 'error');
-            await deleteDoc(doc(db, "pendingOrders", order.id));
+            await deleteDoc(doc(firebaseServices.db, "pendingOrders", order.id));
         }
     };
     
     const handleDeny = async (order) => {
         const purchasedItems = order.cart.map(item => `${item.name} (x${item.quantity})`).join(', ');
         await addNotification(order.employeeId, `Your purchase request for ${purchasedItems} has been denied by the admin.`, 'error');
-        await deleteDoc(doc(db, "pendingOrders", order.id));
+        await deleteDoc(doc(firebaseServices.db, "pendingOrders", order.id));
         showNotification(`Order #${order.id} has been denied.`, 'warning');
     };
 
@@ -1107,7 +1118,8 @@ const CheckoutPOS = ({ users, inventory, executePurchase, showNotification }) =>
     );
 };
 
-const InventoryManagement = ({ inventory, showNotification, appSettings }) => {
+const InventoryManagement = ({ inventory, showNotification, appSettings, firebaseServices }) => {
+    const { db } = firebaseServices;
     const [editingRowId, setEditingRowId] = useState(null);
     const [editFormData, setEditFormData] = useState({});
     const [isAdding, setIsAdding] = useState(false);
@@ -1372,7 +1384,8 @@ const InventoryManagement = ({ inventory, showNotification, appSettings }) => {
     );
 };
 
-const EmployeeManagement = ({ users, showNotification, onEditUser }) => {
+const EmployeeManagement = ({ users, showNotification, onEditUser, firebaseServices }) => {
+    const { auth, db } = firebaseServices;
     const addPointsFileInputRef = useRef(null);
     
     const handleResetPassword = async (email) => {
@@ -1389,8 +1402,6 @@ const EmployeeManagement = ({ users, showNotification, onEditUser }) => {
     const handleRemoveEmployee = async (userId, name) => {
         if(window.confirm(`Are you sure you want to remove employee "${name}"? This action is not easily reversible.`)) {
             try {
-                // This only deletes the Firestore record, not the Auth user.
-                // For a full solution, you'd need a Cloud Function to delete the Auth user.
                 await deleteDoc(doc(db, 'users', userId));
                 showNotification(`Employee "${name}" has been removed from the database.`, "success");
             } catch (error) {
@@ -1422,10 +1433,8 @@ const EmployeeManagement = ({ users, showNotification, onEditUser }) => {
                            batch.update(userDoc.ref, { points: currentPoints + Number(row.points_to_add) });
                         }
                     }
-                } else { // 'updateList' mode
+                } else {
                     json.forEach(() => {
-                        // This part is complex because it involves creating Auth users.
-                        // For simplicity, this example will only update existing Firestore users.
                         showNotification("Bulk creation from Excel is not supported in this version.", "info");
                     });
                 }
